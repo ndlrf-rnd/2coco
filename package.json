@@ -1,0 +1,13 @@
+{
+	"name": "2coco",
+	"version": "0.2.0",
+	"dependencies": {
+		"xml-js": "1.6.11",
+		"sharp": "0.27.2",
+		"argparse": "2.0.1",
+		"glob": "7.1.6",
+		"jsonata": "1.8.4"
+	},
+	"main": "2coco.js",
+	"private": true
+}
