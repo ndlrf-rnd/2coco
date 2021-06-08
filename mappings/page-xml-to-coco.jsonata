@@ -1,0 +1,72 @@
+(
+  $blocks := $
+    .elements[$match($.name, /PcGts$/)]
+    .elements[$match($.name, /Page$/)]
+    .**
+    .elements[$match($.name, /(Border|PrintSpace|Word|TextBlock|TextLine|String|Region)$/)]
+    .$merge([$, {
+      'file_name': %.attributes.imageFilename
+    }]);
+  {
+    'annotations': $merge(
+      $blocks.{
+        ($.attributes.id ? $.attributes.id : $.name) : {
+          'id': $.attributes.id,
+          'file_name': $.file_name,
+          'category': $join([$split($.name, ':')[-1], $.attributes.type], ':'),
+          'iscrowd': 0,
+          'keypoints': [
+              $.elements[$match($.name, /Baseline$/)]
+              .attributes
+              .points
+              .$split($, / /)
+              .$append($split($, /,/).$number($), [2])
+          ],
+          'segmentation': [
+            $.elements[$match($.name, /Coords$/)] ?
+              $.elements[$match($.name, /Coords$/)].[
+                $.attributes.points.$split($, /[ ,]/).$number($)
+              ].*
+            : undefined,
+
+            $.elements[$match($.name, /Coords$/)] ?
+              $.elements[$match($.name, /Coords$/)].[
+                $.elements.[$.attributes.x.$number($), $.attributes.y.$number($)].*
+              ].*  : undefined
+          ]
+          /*
+              'text': $.elements[$match($.name, /TextEquiv$/)].**.text,
+              'conf': $.attributes.conf,
+          */
+        }
+      }
+    ),
+    /* Border|PrintSpace */
+    'categories': $merge(
+      $blocks.{
+        $join([$split($.name, ':')[-1], $.attributes.type], ':'): {
+          'name': $join([$split($.name, ':')[-1], $.attributes.type], ':'),
+          'supercategory': $split($.name, ':')[-1]
+
+          /*
+          'keypoints': $match($.name, /TextLine$/) ? ['baseline_left', 'baseline_right'] : [],
+          'skeleton': $match($.name, /TextLine$/) ? [[1, 2]] : []
+          */
+        }
+      }
+    ),
+    'width': $.elements[$match($.name, /PcGts$/)].**[$match($.name, /Page$/)].attributes.imageWidth.$number($),
+    'height': $.elements[$match($.name, /PcGts$/)].**[$match($.name, /Page$/)].attributes.imageHeight.$number($),
+    'images': $merge(
+      $.elements[$match($.name, /PcGts$/)].**[$match($.name, /Page$/)].[{
+        $.attributes.imageFilename: {
+          'file_name': $.attributes.imageFilename,
+          'width': $.attributes.imageWidth.$number($),
+          'height': $.attributes.imageHeight.$number($),
+          'imageXResolution': $.attributes.imageXResolution.$replace($, /[.][0]*$/, '.0'),
+          'imageYResolution': $.attributes.imageYResolution.$replace($, /[.][0]*$/, '.0')
+        }
+      }]
+    )
+  };
+)

@@ -1,13 +1,18 @@
 {
-	"name": "2coco",
-	"version": "0.2.0",
-	"dependencies": {
-		"xml-js": "1.6.11",
-		"sharp": "0.27.2",
-		"argparse": "2.0.1",
-		"glob": "7.1.6",
-		"jsonata": "1.8.4"
-	},
-	"main": "2coco.js",
-	"private": true
+  "name": "2coco",
+  "description": "Converts METS/ALTO/Page.XML datasets to COCO dataset format",
+  "version": "0.3.0",
+  "dependencies": {
+    "argparse": "2.0.1",
+    "glob": "7.1.6",
+    "jsonata": "1.8.4",
+    "lodash.omit": "4.5.0",
+    "lodash.sortby": "4.7.0",
+    "sharp": "0.27.2",
+    "canvas": "2.7.0",
+    "xml-js": "1.6.11",
+    "mkdirp": "1.0.4"
+  },
+  "main": "2coco.js",
+  "private": true
 }

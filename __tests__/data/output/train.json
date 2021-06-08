@@ -1,0 +1,141 @@
+{
+  "categories": [
+    {
+      "name": "BottomMargin",
+      "supercategory": "BottomMargin",
+      "id": 1,
+      "keypoints": [
+        "baseline_left",
+        "baseline_right"
+      ],
+      "skeleton": [
+        [
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "name": "ComposedBlock",
+      "supercategory": "ComposedBlock",
+      "id": 2,
+      "keypoints": [
+        "baseline_left",
+        "baseline_right"
+      ],
+      "skeleton": [
+        [
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "name": "LeftMargin",
+      "supercategory": "LeftMargin",
+      "id": 3,
+      "keypoints": [
+        "baseline_left",
+        "baseline_right"
+      ],
+      "skeleton": [
+        [
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "name": "Page",
+      "supercategory": "Page",
+      "id": 4,
+      "keypoints": [
+        "baseline_left",
+        "baseline_right"
+      ],
+      "skeleton": [
+        [
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "name": "PrintSpace",
+      "supercategory": "PrintSpace",
+      "id": 5,
+      "keypoints": [
+        "baseline_left",
+        "baseline_right"
+      ],
+      "skeleton": [
+        [
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "name": "RightMargin",
+      "supercategory": "RightMargin",
+      "id": 6,
+      "keypoints": [
+        "baseline_left",
+        "baseline_right"
+      ],
+      "skeleton": [
+        [
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "name": "TextBlock",
+      "supercategory": "TextBlock",
+      "id": 7,
+      "keypoints": [
+        "baseline_left",
+        "baseline_right"
+      ],
+      "skeleton": [
+        [
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "name": "TextLine",
+      "supercategory": "TextLine",
+      "id": 8,
+      "keypoints": [
+        "baseline_left",
+        "baseline_right"
+      ],
+      "skeleton": [
+        [
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "name": "TopMargin",
+      "supercategory": "TopMargin",
+      "id": 9,
+      "keypoints": [
+        "baseline_left",
+        "baseline_right"
+      ],
+      "skeleton": [
+        [
+          1,
+          2
+        ]
+      ]
+    }
+  ],
+  "images": {},
+  "annotations": []
+}

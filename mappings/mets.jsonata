@@ -1,0 +1,78 @@
+(
+    $ID_PREC := {
+        'PURL': 1,
+        'URN': 2,
+        'DOI': 3,
+        'URL': 4
+    };
+    $files := $merge(
+        $.**.elements[$match($.name, /file$/)]{
+              $.attributes.ID: {
+                'id': $.attributes.ID,
+                'mediaType': $.attributes.MIMETYPE,
+                'file_name': $replace(
+                  $.elements[$match($.name, /FLocat$/)].attributes.'xlink:href',
+                  /file:\/\//,
+                  ''
+                ),
+                'type': $.elements[$match($.name, /FLocat$/)].attributes.LOCTYPE
+              }
+          }
+    );
+    {
+        'id': $sort(
+            elements.elements.elements.elements.elements.elements[$match(name, /identifier$/)],
+            function($l, $r) {
+                $lookup($ID_PEC, $uppercase($l.attributes.type)) < $lookup($ID_PEC, $uppercase($r.attributes.type))
+            }
+        )[0].elements.text,
+        'dmd': $.**[$match($.name, /dmdSec$/)].{
+            $.attributes.ID: $.elements[$match($.name, /mdWrap$/)].{
+                'type': [$.attributes.MDTYPE, $.attributes.OTHERMDTYPE],
+                'els': $.elements[$match($.name, /xmlData$/)].elements.{
+                    $.name:[$.attributes, $.elements]
+                }
+            }
+        },
+        'files': $files,
+        'logical': $merge(
+          $.[
+            $.**[$.attributes.TYPE = 'LOGICAL'].**[$.attributes.ID and $.attributes.TYPE].{
+              $.attributes.ID: $merge([
+                $.**[$.attributes.BEGIN and $.attributes.FILEID].attributes,
+                {
+                  'PARENT_ID': $.attributes.ID,
+                  'TYPE': $.attributes.TYPE,
+                  'FILE': $lookup($files, $.attributes.FILEID)
+                }
+              ])
+            }
+           ]
+         ),
+        'physical': $.[
+          $sort(
+              $
+                .**[$lowercase($.attributes.TYPE) = 'physical']
+                .**
+                .elements[$lowercase($.attributes.TYPE) = 'page'],
+              function($l, $r) {
+                  (
+                    $l.attributes.ORDER ? $number($l.attributes.ORDER) : 0
+                  ) < (
+                    $r.attributes.ORDER ? $number($r.attributes.ORDER) : 0
+                  )
+              }
+            ).{
+                'files': $sort(
+                    $.**[$.attributes.FILEID].attributes.FILEID,
+                    function($l, $r) {
+                        $lookup($ID_PREC, $uppercase($l.type)) < $lookup($ID_PREC, $uppercase($r.type))
+                    }
+                  ).$lookup($files, $),
+                'id': $.attributes.ID,
+                'dmdid': $.attributes.DMDID,
+                'order': $.attributes.ORDER.$number($)
+            }
+          ]
+    };
+)

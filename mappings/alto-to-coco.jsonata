@@ -1,0 +1,104 @@
+(
+  $processDescNode := function ($el) {
+      ($el.name and $el.elements.text) ?
+      {$.name: $join($.elements.text, '\n')}
+       : {}
+  };
+  $processBlock := function ($block) {
+    (
+      $x := $block.attributes.HPOS ? $block.attributes.HPOS.$number($) : 0;
+      $y := $block.attributes.VPOS ? $block.attributes.VPOS.$number($) : 0;
+      $w := $block.attributes.WIDTH.$number($);
+      $h := $block.attributes.HEIGHT.$number($);
+      $bbox := [$x, $y, $w, $h];
+      $segmentation := $block.elements.elements[$.attributes.POINTS].[
+        attributes.POINTS.$split($, /[ ,]/).$number($)
+      ];
+      {
+          'category': $block.name,
+          'id': $block.attributes.ID,
+          'styleRefs': $block.attributes.STYLEREFS.$split($, ' '),
+          'tagsRefs': $block.attributes.TAGSREFS.$split($, ' '),
+          'processingRefs': $block.attributes.PROCESSINGREFS.$split($, ' '),
+          'bbox': [$x, $y, $w, $h],
+          'iscrowd': 0,
+          'segmentation': $segmentation ? $segmentation : [
+            $x, $y,
+            $x + $w, $y,
+            $x + $w, $y + $h,
+            $x, $y + $h
+          ],
+          'wc': $block.attributes.WC.$number($),
+          'cc': $block.attributes.CC.$number($),
+          'cs': $block.attributes.CS.$number($),
+          'vc': $block.attributes.VC.$number($),
+          'gc': $block.attributes.GC.$number($),
+          'content': $block.attributes.CONTENT,
+          'subsType': $block.attributes.SUBS_TUPE,
+          'subsContent': $block.attributes.SUBS_CONTENT,
+          /* Pixel coordinates based on the left-hand top corner of an image which define a polyline on which a line of text rests. */
+          'baseLine': $block.attributes.BASELINE,
+          'lang': $block.attributes.LANG,
+          'style': $block.attributes.STYLE
+        }
+      )
+    };
+    $annotations := $merge(
+      [
+        $.elements.elements.elements[$.name='Page'].elements[$.attributes.ID].{
+          $.attributes.ID: $processBlock($)
+        },
+        $.elements.elements.elements[$.name='Page'].elements.elements[$.attributes.ID].{
+          $.attributes.ID: $processBlock($)
+        },
+        $.elements.elements.elements[$.name='Page'].elements.elements.elements[$.attributes.ID].{
+          $.attributes.ID: $processBlock($)
+        }
+      ]
+    );
+
+    $categories := $merge(
+      $annotations[$.category].{
+          $.category: {
+            'name': $.category,
+            'supercategory': $.category
+          }
+      }
+    );
+
+    {
+      'images': $.**.elements[$.name='fileName'].[{
+          /*
+          'width': $.attributes.imageWidth.$number($),
+          'height': $.attributes.imageHeight.$number($),
+          'imageXResolution': $.attributes.imageXResolution.$replace($, /[.][0]*$/, '.0'),
+          'imageYResolution': $.attributes.imageYResolution.$replace($, /[.][0]*$/, '.0'),
+          */
+          'file_name': $replace($.elements.text, /file:\/\//, '')
+       }],
+      'description': $merge(
+          $.elements.elements[name='Description'].**.elements[$.name and $.elements.text].{
+              $.name: $.elements.text
+          }
+      ),
+      'styles': $merge(
+        $.**[$.name='Styles'].elements.{
+          $.attributes.ID: {
+            'type': $.name,
+            'id': $.attributes.ID,
+            'align': $.attributes.ALIGN,
+            'fontSize': $.attributes.FONTSIZE.$number($),
+            'fontFamily': $.attributes.FONTFAMILY,
+            'fontStyle': $.attributes.FONTSTYLE,
+            'right': $.attributes.RIGHT,
+            'lineSpace': $.attributes.LINESPACE,
+            'firstLine': $.attributes.FIRSTLINE
+        }
+      }
+    ),
+    'width': $.elements.elements.elements[$.name='Page'].attributes.WIDTH.$number($),
+    'height': $.elements.elements.elements[$.name='Page'].attributes.HEIGHT.$number($),
+    'categories': $categories,
+    'annotations': $annotations
+  }
+)
