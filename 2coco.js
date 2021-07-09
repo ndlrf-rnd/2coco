@@ -450,14 +450,14 @@ const processImages = async (images, ctx, workerId) => {
               await cpMap(
                 binMaskCanvases,
                 async (binMaskCanvas, idx) => {
-                  const fn = maskOutputPath.replace(/_mask(\.[^.]+)$/u, `.gt${idx}$1`);
+                  const fn = maskOutputPath.replace(/_mask(\.[^.]+)$/u, `_gt${idx}$1`);
 
                   await sharp(binMaskCanvas.toBuffer()).png(pngParams).toFile(fn)
                 }
               )
               if (!ctx.no_gt_bg) {
                 await sharp(canvasBlock.toBuffer()).threshold(254).negate().png(pngParams).toFile(
-                  maskOutputPath.replace(/_mask(\.[^.]+)$/u, `.gt${binMaskCanvases.length}$1`)
+                  maskOutputPath.replace(/_mask(\.[^.]+)$/u, `_gt${binMaskCanvases.length}$1`)
                 )
               }
             }

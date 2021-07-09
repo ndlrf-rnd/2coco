@@ -1,7 +1,7 @@
 set -ex
 
 
-export JOBS="${JOBS:-1}"
+export JOBS="${JOBS:-6}"
 
 node 2coco.js \
   --output-max-dpi 300 \
