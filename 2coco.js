@@ -450,14 +450,14 @@ const processImages = async (images, ctx, workerId) => {
               await cpMap(
                 binMaskCanvases,
                 async (binMaskCanvas, idx) => {
-                  const fn = maskOutputPath.replace(/_mask(\.[^.]+)$/u, `_gt${idx}$1`);
+                  const fn = maskOutputPath.replace(/_mask(\.[^.]+)$/u, `_GT${idx}$1`);
 
                   await sharp(binMaskCanvas.toBuffer()).png(pngParams).toFile(fn)
                 }
               )
               if (!ctx.no_gt_bg) {
                 await sharp(canvasBlock.toBuffer()).threshold(254).negate().png(pngParams).toFile(
-                  maskOutputPath.replace(/_mask(\.[^.]+)$/u, `_gt${binMaskCanvases.length}$1`)
+                  maskOutputPath.replace(/_mask(\.[^.]+)$/u, `_GT${binMaskCanvases.length}$1`)
                 )
               }
             }
@@ -721,7 +721,7 @@ const makeMasksHtml = (images, masksDir) => `<!DOCTYPE HTML>
        height
      }
     ) => {
-      const maskFileName = path.join(masksDir, file_name.split(/[\/\\]/).slice(-1)[0].replace(/\.[^\/\\.]+$/, '_gt.png'))
+      const maskFileName = path.join(masksDir, file_name.split(/[\/\\]/).slice(-1)[0].replace(/\.[^\/\\.]+$/, '_GT.png'))
       return `<div class="block" style="width: ${width}px; height: ${height}px;"><img
      class="image"
      style="margin-right: -${width}px; margin-top: -${height}px;"
