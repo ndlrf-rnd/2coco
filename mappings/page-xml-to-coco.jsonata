@@ -15,6 +15,12 @@
           'file_name': $.file_name,
           'category': $join([$split($.name, ':')[-1], $.attributes.type], ':'),
           'iscrowd': 0,
+          /*
+            Each keypoint has a 0-indexed location x,y and a visibility flag v defined as
+            * v=0: not labeled (in which case x=y=0)
+            * v=1: labeled but not visible
+            * v=2: labeled and visible
+          */
           'keypoints': [
               $.elements[$match($.name, /Baseline$/)]
               .attributes
@@ -25,7 +31,7 @@
           'segmentation': [
             $.elements[$match($.name, /Coords$/)] ?
               $.elements[$match($.name, /Coords$/)].[
-                $.attributes.points.$split($, /[ ,]/).$number($)
+                $boolean($.attributes.points) ? $.attributes.points.$split($, /[ ,]/).$number($) : undefined
               ].*
             : undefined,
 
@@ -33,11 +39,8 @@
               $.elements[$match($.name, /Coords$/)].[
                 $.elements.[$.attributes.x.$number($), $.attributes.y.$number($)].*
               ].*  : undefined
-          ]
-          /*
-              'text': $.elements[$match($.name, /TextEquiv$/)].**.text,
-              'conf': $.attributes.conf,
-          */
+          ],
+          'text': $.elements[$match($.name, /TextEquiv$/)].**.text
         }
       }
     ),

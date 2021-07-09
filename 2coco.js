@@ -1,3 +1,5 @@
+// noinspection CssInvalidPropertyValue
+
 /**
  * @module 2coco
  */
@@ -7,11 +9,15 @@ const path = require('path');
 const cluster = require('cluster')
 
 const mkdirp = require('mkdirp')
-const jsonata = require('jsonata');
 const glob = require('glob');
 const sharp = require('sharp');
-const omit = require('lodash.omit')
 const sortBy = require('lodash.sortby');
+const compact = require('lodash.compact');
+const {COLORS} = require("./colors");
+const {CATEGORIES} = require("./categories");
+const {CATEGORIES_MAPPING} = require("./categories");
+const {CATEGORY_PRINT_SPACE} = require("./categories");
+const {CATEGORY_TEXT_LINE} = require("./categories");
 const {xml2js} = require('xml-js');
 const {Canvas} = require('canvas')
 
@@ -25,7 +31,10 @@ const {
 } = require("./utils");
 const {getFileHash} = require("./file-hash");
 const {parseArgs} = require("./cli");
-const {getColorForId, COLORS} = require("./colors");
+const {
+  UNKNOWN_CATEGORY_COLOR,
+  UNKNOWN_CATEGORY_SKELETON_COLOR
+} = require("./colors");
 const {jsonataRunner} = require("./jsonata");
 const {cpMap} = require('./promise.js');
 const {initWorker, executeParallel} = require("./workers");
@@ -37,283 +46,9 @@ const {initWorker, executeParallel} = require("./workers");
 const DEFAULT_IMAGE_EXTENSION = '.png'
 const IMAGE_NAME_ID_SIZE = 8;
 const REPORT_EVERY = 1000;
-const SKELETON_STROKE_WIDTH = 2;
-const BLOCK_OUTLINE_WIDTH_PX = 0;
-const CATEGORY_TEXT_BLOCK = 'TextBlock';
-const CATEGORY_TABLE = 'Table';
-const CATEGORY_FIGURE = 'Figure';
-const CATEGORY_SEPARATOR = 'Separator';
-const CATEGORY_PRINT_SPACE = 'PrintSpace';
-const CATEGORY_PARAGRAPH = 'Paragraph';
-const CATEGORY_TEXT_LINE = 'TextLine';
-const CATEGORY_WORD = 'Word';
-const CATEGORY_GLYPH = 'Glyph';
+const SKELETON_STROKE_WIDTH = 3;
+const BLOCK_OUTLINE_WIDTH_PX = 3;
 
-const BACKGROUND_COLOR = COLORS.black;
-const PRINT_SPACE_COLOR = COLORS.grey['800'];
-const UNKNOWN_CATEGORY_COLOR = COLORS.grey['500']
-
-const CATEGORIES = {
-  [CATEGORY_PRINT_SPACE]: {
-    name: CATEGORY_PRINT_SPACE,
-    supercategory: CATEGORY_PRINT_SPACE,
-    keypoints: [],
-    skeleton: [],
-    id: 1,
-    color: PRINT_SPACE_COLOR
-  },
-  [CATEGORY_TABLE]: {
-    name: CATEGORY_TABLE,
-    supercategory: CATEGORY_TABLE,
-    keypoints: [],
-    skeleton: [],
-    id: 2,
-    color: COLORS.green['700']
-  },
-  [CATEGORY_FIGURE]: {
-    name: CATEGORY_FIGURE,
-    supercategory: CATEGORY_FIGURE,
-    keypoints: [],
-    skeleton: [],
-    id: 3,
-    color: COLORS.amber['700']
-  },
-  [CATEGORY_SEPARATOR]: {
-    name: CATEGORY_SEPARATOR,
-    supercategory: CATEGORY_SEPARATOR,
-    keypoints: [],
-    skeleton: [],
-    id: 4,
-    color: COLORS.red['700']
-  },
-  [CATEGORY_TEXT_BLOCK]: {
-    name: CATEGORY_TEXT_BLOCK,
-    supercategory: CATEGORY_TEXT_BLOCK,
-    keypoints: [],
-    skeleton: [],
-    id: 5,
-    color: COLORS.lightBlue['500']
-  },
-  [CATEGORY_PARAGRAPH]: {
-    name: CATEGORY_PARAGRAPH,
-    supercategory: CATEGORY_PARAGRAPH,
-    keypoints: [],
-    skeleton: [],
-    id: 6,
-    color: COLORS.cyan['500']
-  },
-  [CATEGORY_TEXT_LINE]: {
-    name: CATEGORY_TEXT_LINE,
-    supercategory: CATEGORY_TEXT_LINE,
-    keypoints: ['baseline_left', 'baseline_right'],
-    skeleton: [[1, 2]],
-    id: 7,
-    color: COLORS.teal['500']
-    // colorAlt: COLORS.teal['500']
-  },
-  [CATEGORY_WORD]: {
-    name: CATEGORY_WORD,
-    supercategory: CATEGORY_WORD,
-    keypoints: ['baseline_left', 'baseline_right'],
-    skeleton: [[1, 2]],
-    id: 8,
-    color: COLORS.indigo['500']
-  },
-  [CATEGORY_GLYPH]: {
-    name: CATEGORY_GLYPH,
-    supercategory: CATEGORY_GLYPH,
-    keypoints: ['baseline_left', 'baseline_right'],
-    skeleton: [[1, 2]],
-    id: 9,
-    color: COLORS.blue['500']
-  },
-}
-
-const CATEGORY_HIDDEN = null;
-
-
-const DEFAULT_VISIBLE_CATEGORIES = [
-  // CATEGORY_WORD,
-  // CATEGORY_GLYPH,
-  CATEGORY_PARAGRAPH,
-  CATEGORY_TEXT_LINE,
-  CATEGORY_PRINT_SPACE,
-  CATEGORY_TEXT_BLOCK,
-  CATEGORY_TABLE,
-  CATEGORY_SEPARATOR,
-  CATEGORY_FIGURE,
-]
-
-// const CATEGORIES_WITH_BASELINE = [
-//   CATEGORY_TEXT_LINE,
-//   CATEGORY_WORD,
-//   CATEGORY_GLYPH
-// ];
-const CATEGORIES_MAPPING = {
-  Border: CATEGORY_PRINT_SPACE,
-  PrintSpace: CATEGORY_PRINT_SPACE,
-  // Page.xml
-  Background: CATEGORY_HIDDEN,
-  NoiseRegion: CATEGORY_HIDDEN,
-  UnknownRegion: CATEGORY_HIDDEN,
-  // ComposedBlock: CATEGORY_TEXT_BLOCK,
-  // Grey
-  Text: CATEGORY_TEXT_BLOCK,
-  // HEADING: CATEGORY_TEXT_BLOCK,
-  OVERLINE: CATEGORY_TEXT_BLOCK,
-  GraphicalElement: CATEGORY_SEPARATOR,
-  // PUBLISHING_STMT: CATEGORY_TEXT_BLOCK,
-  // HEADLINE: CATEGORY_TEXT_BLOCK,
-  // TITLE_SECTION: CATEGORY_TEXT_BLOCK,
-  TextRegion: {
-    paragraph: CATEGORY_TEXT_BLOCK,
-    heading: CATEGORY_TEXT_BLOCK,
-    caption: CATEGORY_TEXT_BLOCK,
-    header: CATEGORY_TEXT_BLOCK,
-    footer: CATEGORY_TEXT_BLOCK,
-    "page-number": CATEGORY_TEXT_BLOCK,
-    "drop-capital": CATEGORY_HIDDEN,
-    credit: CATEGORY_TEXT_BLOCK,
-    floating: CATEGORY_TEXT_BLOCK,
-    "signature-mark": CATEGORY_TEXT_BLOCK,
-    "catch-word": CATEGORY_TEXT_BLOCK,
-    marginalia: CATEGORY_TEXT_BLOCK,
-    footnote: CATEGORY_TEXT_BLOCK,
-    "footnote-continued": CATEGORY_TEXT_BLOCK,
-    endnote: CATEGORY_TEXT_BLOCK,
-    "TOC-entry": CATEGORY_TABLE,
-    "list-label": CATEGORY_TEXT_BLOCK,
-    other: CATEGORY_TEXT_BLOCK,
-  },
-  Word: CATEGORY_WORD,
-  // TextLine: CATEGORY_TEXT_LINE,
-  Paragraph: CATEGORY_TEXT_BLOCK,
-  TableRegion: CATEGORY_TABLE,
-  GraphicRegion: {
-    logo: CATEGORY_FIGURE,
-    letterhead: CATEGORY_FIGURE,
-    decoration: CATEGORY_SEPARATOR,
-    frame: CATEGORY_SEPARATOR,
-    'handwritten-annotation': CATEGORY_TEXT_BLOCK,
-    stamp: CATEGORY_FIGURE,
-    signature: CATEGORY_FIGURE,
-    barcode: CATEGORY_FIGURE,
-    'paper-grow': CATEGORY_FIGURE,
-    'punch-hole': CATEGORY_FIGURE,
-    other: CATEGORY_FIGURE,
-  },
-  ImageRegion: CATEGORY_FIGURE,
-  AdvertRegion: CATEGORY_FIGURE,
-
-  SeparatorRegion: CATEGORY_SEPARATOR,
-
-  MusicRegion: CATEGORY_FIGURE,
-  ChemRegion: CATEGORY_FIGURE,
-  MathsRegion: CATEGORY_FIGURE,
-
-  ChartRegion: {
-    bar: CATEGORY_FIGURE,
-    line: CATEGORY_FIGURE,
-    pie: CATEGORY_FIGURE,
-    scatter: CATEGORY_FIGURE,
-    surface: CATEGORY_FIGURE,
-    other: CATEGORY_FIGURE,
-  },
-  LineDrawingRegion: CATEGORY_FIGURE,
-
-  // METS
-
-  HEADING: CATEGORY_TEXT_BLOCK, // # group
-  AUTHOR: CATEGORY_TEXT_BLOCK,
-  TITLE: CATEGORY_TEXT_BLOCK,
-  TITLE_SECTION: CATEGORY_TEXT_BLOCK,  // group
-
-  PUBLISHING_STMT: CATEGORY_TEXT_BLOCK,
-  HEADLINE: CATEGORY_TEXT_BLOCK,
-  SUBHEADLINE: CATEGORY_TEXT_BLOCK,
-  MOTTO: CATEGORY_TEXT_BLOCK,
-
-  IMAGE: CATEGORY_FIGURE,
-
-  TABLE: CATEGORY_TABLE,  // group
-
-  TEXT: CATEGORY_TEXT_BLOCK,
-  TEXTBLOCK: CATEGORY_TEXT_BLOCK,
-  ADVERTISEMENT: CATEGORY_FIGURE,
-  ISSUE: CATEGORY_TEXT_BLOCK,
-  /*
-  # mets_region_type_to_outline = {
-  #     # TITLE_SECTION: CATEGORY_TEXT_BLOCK,
-  #     # SECTION: CATEGORY_TEXT_BLOCK,
-  #     # ISSUE: CATEGORY_TEXT_BLOCK,
-  #     # PARAGRAPH: CATEGORY_TEXT_BLOCK,
-  #     # PARAGRAPH: CATEGORY_BACKGROUND,
-  #     # TEXTBLOCK: CATEGORY_BACKGROUND,
-  #     # TEXT: CATEGORY_TEXT_BLOCK,
-  #     # TEXT: CATEGORY_BACKGROUND,
-  #     # PAGE: CATEGORY_BACKGROUND,
-  #     # OVERLINE: CATEGORY_TEXT_BLOCK,
-  #     # CAPTION: CATEGORY_TEXT_BLOCK,
-  #     # SUBHEADLINE: CATEGORY_TEXT_BLOCK,
-  #     # TABLE: CATEGORY_TABLE,
-  #     # CompleteObject: CATEGORY_BACKGROUND,
-  #     # PUBLISHING_STMT: CATEGORY_TEXT_BLOCK,
-  #     # ISSUE: CATEGORY_TEXT_BLOCK,
-  #     # Newspaper: None,
-  #     # IMAGE: CATEGORY_ADVERTISEMENT,
-  #     # CONTENT: None,
-  #     # TITLE: CATEGORY_TEXT_BLOCK,
-  #     # BODY: None,
-  #     # HEADLINE: CATEGORY_TEXT_BLOCK,
-  #     # VOLUME: CATEGORY_TEXT_BLOCK,
-  #     # PARAGRAPH: CATEGORY_TEXT_BLOCK,
-  #     # ARTICLE: CATEGORY_TEXT_BLOCK,
-  #     # AUTHOR: CATEGORY_TEXT_BLOCK,
-  #     # TEXTBLOCK: CATEGORY_TEXT_BLOCK,
-  #     # BODY_CONTENT: None,
-  #     # TEXT: CATEGORY_TEXT_BLOCK
-  #     # === 5 ====
-  #     CONTENT: CATEGORY_TEXT_BLOCK,
-  #     TITLE_SECTION: CATEGORY_TEXT_BLOCK,
-  #     ARTICLE: CATEGORY_ADVERTISEMENT,
-  #     SECTION: CATEGORY_ADVERTISEMENT,
-  #     # === 6 ====
-  #     BODY: CATEGORY_TEXT_BLOCK,
-  #     HEADING: CATEGORY_TEXT_BLOCK,
-  #     # === 8 ====
-  #     BODY_CONTENT: CATEGORY_TEXT_BLOCK,
-  #     OVERLINE: CATEGORY_TEXT_BLOCK,
-  #     TABLE: CATEGORY_TABLE,
-  # }
-  */
-
-  // ALTO
-  CompleteObject: CATEGORY_HIDDEN,
-  TopMargin: CATEGORY_HIDDEN,
-  RightMargin: CATEGORY_HIDDEN,
-  BottomMargin: CATEGORY_HIDDEN,
-  LeftMargin: CATEGORY_HIDDEN,
-  // PrintSpace: CATEGORY_PRINT_SPACE,
-
-  Page: CATEGORY_PRINT_SPACE,
-  // NoiseRegion: CATEGORY_HIDDEN,
-  // UnknownRegion: CATEGORY_HIDDEN,
-  TextLine: CATEGORY_TEXT_LINE,
-  // TextString: CATEGORY_TEXT_LINE,
-  String: CATEGORY_TEXT_BLOCK,
-  TextBlock: CATEGORY_TEXT_BLOCK,
-  Tables: CATEGORY_TABLE,
-  // GraphicalElement: CATEGORY_FIGURE,
-  Illustration: CATEGORY_FIGURE,
-  // SeparatorRegion: CATEGORY_SEPARATOR,
-
-  // MusicRegion: CATEGORY_FIGURE,
-  // ChemRegion: CATEGORY_FIGURE,
-  // MathsRegion: CATEGORY_FIGURE,
-  // ChartRegion: CATEGORY_FIGURE,
-  // LineDrawingRegion: CATEGORY_FIGURE
-
-}
 
 const METS_JSONATA_PATH = path.join(__dirname, 'mappings/mets.jsonata');
 const PAGE_XML_TO_COCO_JSONATA_PATH = path.join(__dirname, 'mappings/page-xml-to-coco.jsonata');
@@ -344,20 +79,53 @@ const pageToCocoExpression = jsonataRunner(fs.readFileSync(PAGE_XML_TO_COCO_JSON
 const altoToCocoExpression = jsonataRunner(fs.readFileSync(ALTO_TO_COCO_JSONATA_PATH, 'utf-8'))
 
 const processImages = async (images, ctx, workerId) => {
+  const colorToMaskId = sortBy(Object.values(ctx.categories), ['id']).reduce(
+    (
+      acc,
+      {color, border_color, border_h_color, border_v_color, skeleton_color}
+    ) => {
+      if ((!ctx.no_fill) && color) {
+        acc[color] = acc[color] || Object.keys(acc).length;
+      }
+      if ((!ctx.no_skeleton) && skeleton_color) {
+        acc[skeleton_color] = acc[skeleton_color] || Object.keys(acc).length;
+      }
+      if (!ctx.no_border) {
+        if (border_color) {
+          acc[border_color] = acc[border_color] || Object.keys(acc).length;
+        }
+        if (border_h_color) {
+          acc[border_h_color] = acc[border_h_color] || Object.keys(acc).length;
+        }
+        if (border_v_color) {
+          acc[border_v_color] = acc[border_v_color] || Object.keys(acc).length;
+        }
+      }
+      return acc;
+    },
+    {}
+  )
 
+  process.stderr.write(
+    `Color to gt ID:\n${
+      Object.keys(colorToMaskId).sort().map(
+        k => `- ${k}: ${colorToMaskId[k]}\n`
+      ).join('')
+    }`
+  )
   return (await cpMap(
       images,
       async (im, idx) => {
+
         const t1 = (new Date()).getTime();
 
-        const categoriesCount = (Array.isArray(ctx.categories) ? ctx.categories : Object.keys(ctx.categories || {})).length
+        // const categoriesCount = (Array.isArray(ctx.categories) ? ctx.categories : Object.keys(ctx.categories || {})).length
         const imgAnnotations = (Array.isArray(ctx.annotations) ? ctx.annotations : Object.values(ctx.annotations || {})).filter(
           ({image_id}) => image_id === im.id
         )
         if (imgAnnotations.length === 0) {
           return null;
         }
-
 
         // const ext = path.extname(im.file_name || '').substr(1);
         let outputPath = path.join(
@@ -422,7 +190,7 @@ const processImages = async (images, ctx, workerId) => {
               im.file_name
                 .split('/')
                 .slice(-1)[0]
-                .replace(/\.([^.\/\\]+)$/u, `.png`)
+                .replace(/\.([^.\/\\]+)$/u, `_mask.png`)
             );
             mkdirp.sync(path.dirname(maskOutputPath));
 
@@ -466,125 +234,236 @@ const processImages = async (images, ctx, workerId) => {
             const canvasBlock = new Canvas(im.width, im.height)
             const canvasBlockCtx = canvasBlock.getContext('2d', {alpha: false});
             canvasBlockCtx.antialias = 'none'
+            canvasBlockCtx.lineJoin = 'miter';
+            canvasBlockCtx.lineWidth = BLOCK_OUTLINE_WIDTH_PX;
+
+            const binMaskCanvases = []
+            const binMaskCtxes = []
+            for (let i = 0; i < Object.keys(colorToMaskId).length; i += 1) {
+              const bmc = new Canvas(im.width, im.height);
+              binMaskCanvases.push(bmc)
+              const bmctx = bmc.getContext('2d', {alpha: false});
+              bmctx.antialias = 'none';
+              bmctx.lineJoin = 'miter';
+              bmctx.strokeStyle = COLORS.white;
+              bmctx.lineWidth = BLOCK_OUTLINE_WIDTH_PX;
+              binMaskCtxes.push(bmctx);
+
+            }
+
 
             sortBy(annotations, ['category_id', 'id']).forEach(
               (ann) => {
-                if (!ctx.key_points) {
-                  canvasBlockCtx.fillStyle = (
-                    Object.values(CATEGORIES).filter(
-                      ({id}) => id === ann.category_id
-                    )[0] || {}
-                  ).color || UNKNOWN_CATEGORY_COLOR;
-                  canvasBlockCtx.strokeStyle = (
-                    DEFAULT_VISIBLE_CATEGORIES.indexOf(CATEGORY_PRINT_SPACE) !== -1
-                  ) ? PRINT_SPACE_COLOR : BACKGROUND_COLOR;
-                  canvasBlockCtx.lineJoin = 'miter';
+                const annCat = Object.values(CATEGORIES).filter(
+                  ({id}) => id === ann.category_id
+                )[0] || {}; // TODO: Rly need object default here?!
 
-                  if (BLOCK_OUTLINE_WIDTH_PX > 0) {
-                    [BLOCK_OUTLINE_WIDTH_PX * 2, 0].forEach(borderLineWidth => {
-                      canvasBlockCtx.lineWidth = borderLineWidth;
-                      ann.segmentation.forEach(
-                        (seg) => {
 
-                          canvasBlockCtx.beginPath();
-                          for (let i = 0; i < Math.floor(seg.length / 2); i += 1) {
-                            const x = seg[i * 2];
-                            const y = seg[i * 2 + 1];
-                            if (i === 0) {
-                              canvasBlockCtx.moveTo(x, y);
-                            } else {
-                              canvasBlockCtx.lineTo(x, y);
-                            }
-                          }
-                          canvasBlockCtx.closePath();
-                          canvasBlockCtx.fill();
-                          canvasBlockCtx.stroke();
+                ann.segmentation.forEach(
+                  (seg) => {
+                    const allSegEdges = [];
+                    const vSegEdges = [];
+                    const hSegEdges = [];
+
+                    for (let i = 0; i < seg.length; i += 2) {
+                      const x1 = i < 2 ? seg[seg.length - 2] : seg[i - 2];
+                      const y1 = i < 2 ? seg[seg.length - 1] : seg[i - 1];
+                      const x2 = seg[i];
+                      const y2 = seg[i + 1];
+
+                      const edge = [[x1, y1], [x2, y2]]
+                      allSegEdges.push(edge)
+                      if (Math.abs(x1 - x2) >= Math.abs(y1 - y2)) {
+                        hSegEdges.push(edge);
+                      } else {
+                        vSegEdges.push(edge);
+                      }
+                    }
+
+                    if (!ctx.no_fill) {
+                      const binMaskCtx = binMaskCtxes[colorToMaskId[annCat.color]]
+                      binMaskCtx.fillStyle = COLORS.white;
+                      canvasBlockCtx.fillStyle = annCat.color;
+
+                      binMaskCtx.beginPath();
+                      canvasBlockCtx.beginPath();
+
+                      for (let i = 0; i < allSegEdges.length; i += 1) {
+                        const [[x1, y1], [x2, y2]] = allSegEdges[i];
+                        if ((i === 0) || (x1 !== allSegEdges[i - 1][1][0]) || (y1 !== allSegEdges[i - 1][1][1])) {
+                          binMaskCtx.moveTo(x1, y1);
+                          canvasBlockCtx.moveTo(x1, y1);
                         }
-                      )
-                    });
+                        binMaskCtx.lineTo(x2, y2)
+                        canvasBlockCtx.lineTo(x2, y2)
+                      }
+                      binMaskCtx.closePath();
+                      binMaskCtx.fill();
+
+                      canvasBlockCtx.closePath();
+                      canvasBlockCtx.fill();
+                    }
+                    // Edges
+                    const bordersEdges = [];
+                    if (!ctx.no_borders) {
+
+                      if (annCat.border_color) {
+                        bordersEdges.push([allSegEdges, annCat.border_color]);
+                      }
+                      if (annCat.border_v_color) {
+                        bordersEdges.push([vSegEdges, annCat.border_v_color]);
+                      }
+                      if (annCat.border_h_color) {
+                        bordersEdges.push([hSegEdges, annCat.border_h_color]);
+                      }
+                      bordersEdges.forEach(([edges, color]) => {
+                        const binMaskCtx = binMaskCtxes[colorToMaskId[color]];
+                        binMaskCtx.strokeStyle = COLORS.white;
+                        binMaskCtx.beginPath();
+                        canvasBlockCtx.strokeStyle = color;
+                        canvasBlockCtx.beginPath();
+                        for (let i = 0; i < edges.length; i += 1) {
+                          const [[x1, y1], [x2, y2]] = edges[i];
+                          if ((i === 0) || (x1 !== edges[i - 1][1][0]) || (y1 !== edges[i - 1][1][1])) {
+                            binMaskCtx.moveTo(x1, y1);
+                            canvasBlockCtx.moveTo(x1, y1);
+                          }
+                          binMaskCtx.lineTo(x2, y2)
+                          canvasBlockCtx.lineTo(x2, y2)
+                        }
+                        // canvasBlockCtx.closePath();
+                        binMaskCtx.stroke();
+                        canvasBlockCtx.stroke();
+                      })
+                    }
                   }
-                }
-                if (ctx.key_points && (ann.keypoints && ann.keypoints.length > 0)) {
+                )
+                if (
+                  (!ctx.no_skeleton)
+                  && ann.keypoints
+                  && (ann.keypoints.length > 0)
+                  && (!ctx.ignore_key_points)
+                ) {
+                  /*
+                    keypoints: ['baseline_left', 'baseline_right'],
+                    skeleton: [[1, 2]],
+                  */
                   const filteredKps = ann.keypoints.reduce(
                     (agg, kp, idx) => {
+                      // Starting new
                       if (idx % 3 === 0) {
                         agg.push([])
-                        agg[agg.length - 1].push(kp)
-                      } else if (idx % 3 === 1) {
-                        agg[agg.length - 1].push(kp)
-                      } else if (idx % 3 === 2) {
-                        if (kp === 1) {
-                          agg.pop() // Pop latest
+                      }
+                      if (idx % 3 === 2) {
+                        if (kp === 0) {
+                          // Nullify invisible and unlabeled KP
+                          agg[agg.length - 1] = null;
                         }
+                      } else {
+                        agg[agg.length - 1].push(kp)
                       }
                       return agg;
                     },
                     []
                   )
+                  let edges = [];
+                  if (annCat.skeleton && annCat.skeleton.length > 0) {
+                    edges = annCat.skeleton.reduce((acc, [fromId, toId], idx) => {
+                      const from = filteredKps[fromId + 1];
+                      const to = filteredKps[toId + 1];
+                      if ((from !== null) && (to !== null)) {
+                        return [...acc, [from, to]];
+                      } else {
+                        return acc;
+                      }
+                    }, [])
+                  } else {
+                    const visibleKps = compact(filteredKps);
+                    for (let i = 1; i < visibleKps.length; i += 1) {
+                      edges.push([visibleKps[i - 1], visibleKps[i]])
+                    }
+                  }
+                  // Draw visible edges
+                  const binMaskCtx = binMaskCtxes[colorToMaskId[annCat.skeleton_color]]
+
+                  binMaskCtx.fillStyle = 'transparent'
+                  binMaskCtx.strokeStyle = COLORS.white
+                  binMaskCtx.lineJoin = 'miter';
+                  binMaskCtx.lineWidth = SKELETON_STROKE_WIDTH;
+                  binMaskCtx.beginPath();
+
                   canvasBlockCtx.fillStyle = 'transparent'
-                  canvasBlockCtx.strokeStyle = COLORS.green['500']
+                  canvasBlockCtx.strokeStyle = annCat.skeleton_color
                   canvasBlockCtx.lineJoin = 'miter';
                   canvasBlockCtx.lineWidth = SKELETON_STROKE_WIDTH;
-
-
                   canvasBlockCtx.beginPath();
-                  filteredKps.forEach(
-                    ([x, y], idx) => {
-                      if (idx === 0) {
-                        canvasBlockCtx.moveTo(x, y);
-                      } else {
-                        canvasBlockCtx.lineTo(x, y);
-                      }
+
+                  edges.forEach(
+                    ([[x1, y1], [x2, y2]]) => {
+                      binMaskCtx.moveTo(x1, y1);
+                      canvasBlockCtx.moveTo(x1, y1);
+
+                      binMaskCtx.lineTo(x2, y2);
+                      canvasBlockCtx.lineTo(x2, y2);
                     }
                   )
-                  // canvasBlockCtx.closePath();
+                  binMaskCtx.stroke();
                   canvasBlockCtx.stroke();
 
                   // Draw vertical
-                  canvasBlockCtx.strokeStyle = (Object.values(CATEGORIES).filter(
-                      ({id}) => id === ann.category_id
-                    )[0] || {}
-                  ).color || COLORS.amber['500'];
-                  ann.segmentation.forEach(
-                    (seg) => {
-                      canvasBlockCtx.beginPath();
-                      let prevX = null;
-                      let prevY = null;
-                      for (let i = 0; i < Math.floor(seg.length / 2); i += 1) {
-
-                        const x = seg[i * 2];
-                        const y = seg[i * 2 + 1];
-                        if (i === 0) {
-                          prevX = seg[seg.length - 2];
-                          prevY = seg[seg.length - 1];
-                          canvasBlockCtx.moveTo(prevX, prevY);
-
-                        }
-                        // Test is line somehow representing text line letter size
-                        const isLineVertical = Math.abs(x - prevX) <= Math.abs(y - prevY);
-                        const isBboxVertical = ann.bbox[2] <= ann.bbox[3];
-                        if (isBboxVertical ? !isLineVertical : isLineVertical) {
-                          canvasBlockCtx.lineTo(x, y);
-                        } else {
-                          canvasBlockCtx.moveTo(x, y);
-                        }
-
-                        prevX = x;
-                        prevY = y;
-
-
-                      }
-                      // canvasBlockCtx.closePath();
-                      canvasBlockCtx.stroke();
-                    }
-                  )
+                  // FIXME: Remove this PAGE.XML targeted hardcoded shore
+                  // canvasBlockCtx.strokeStyle = annCat.color || COLORS.white;
+                  // ann.segmentation.forEach(
+                  //   (seg) => {
+                  //     canvasBlockCtx.beginPath();
+                  //     let prevX = null;
+                  //     let prevY = null;
+                  //     for (let i = 0; i < Math.floor(seg.length / 2); i += 1) {
+                  //
+                  //       const x = seg[i * 2];
+                  //       const y = seg[i * 2 + 1];
+                  //       if (i === 0) {
+                  //         prevX = seg[seg.length - 2];
+                  //         prevY = seg[seg.length - 1];
+                  //         canvasBlockCtx.moveTo(prevX, prevY);
+                  //
+                  //       }
+                  //       // Test is line somehow representing text line letter size
+                  //       const isLineVertical = Math.abs(x - prevX) <= Math.abs(y - prevY);
+                  //       const isBboxVertical = ann.bbox[2] <= ann.bbox[3];
+                  //       if (isBboxVertical ? !isLineVertical : isLineVertical) {
+                  //         canvasBlockCtx.lineTo(x, y);
+                  //       } else {
+                  //         canvasBlockCtx.moveTo(x, y);
+                  //       }
+                  //       prevX = x;
+                  //       prevY = y;
+                  //     }
+                  //     canvasBlockCtx.stroke();
+                  //   }
+                  // )
                 }
               }
             )
+            const pngParams = {resolveWithObject: true, force: true};
+            if (!ctx.no_gt) {
+              await cpMap(
+                binMaskCanvases,
+                async (binMaskCanvas, idx) => {
+                  const fn = maskOutputPath.replace(/_mask(\.[^.]+)$/u, `.gt${idx}$1`);
 
-            await sharp(canvasBlock.toBuffer())
-              .png({resolveWithObject: true, force: true})
-              .toFile(maskOutputPath)
+                  await sharp(binMaskCanvas.toBuffer()).png(pngParams).toFile(fn)
+                }
+              )
+              if (!ctx.no_gt_bg) {
+                await sharp(canvasBlock.toBuffer()).threshold(254).negate().png(pngParams).toFile(
+                  maskOutputPath.replace(/_mask(\.[^.]+)$/u, `.gt${binMaskCanvases.length}$1`)
+                )
+              }
+            }
+            if (!ctx.no_masks) {
+              await sharp(canvasBlock.toBuffer()).png(pngParams).toFile(maskOutputPath)
+            }
 
             const t2 = (new Date()).getTime();
             log(
@@ -813,12 +692,12 @@ const processXmlPath = async (paths, {parentPath, tempDirPath}, workerId) => Pro
   )
 );
 
-const makeMasksHtml = (images, masksDirName) => `<!DOCTYPE HTML>
+const makeMasksHtml = (images, masksDir) => `<!DOCTYPE HTML>
 <html lang="ru-RU">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>COCO dataset masks preview (${masksDirName})</title>
+    <title>COCO dataset masks preview (${masksDir})</title>
     <style>
       img.image {
         opacity: 1.0;
@@ -842,7 +721,7 @@ const makeMasksHtml = (images, masksDirName) => `<!DOCTYPE HTML>
        height
      }
     ) => {
-      const maskFileName = path.join(masksDirName, file_name.split(/[\/\\]/).slice(-1)[0].replace(/\.[^\/\\.]+$/, '.png'))
+      const maskFileName = path.join(masksDir, file_name.split(/[\/\\]/).slice(-1)[0].replace(/\.[^\/\\.]+$/, '_gt.png'))
       return `<div class="block" style="width: ${width}px; height: ${height}px;"><img
      class="image"
      style="margin-right: -${width}px; margin-top: -${height}px;"
@@ -910,10 +789,7 @@ const makeCoco = async (input, conf) => {
   }
   const categoriesCount = Object.keys(input.categories || {}).length
   log(`Merging ${categoriesCount}  categories...`)
-  const categories = DEFAULT_VISIBLE_CATEGORIES.reduce(
-    (a, k) => ({...a, [k]: CATEGORIES[k]}),
-    {}
-  )
+  // const categories = conf.categories;
 
   log(` done\n`)
   const imagesCount = Object.keys(input.images || {}).length
@@ -975,7 +851,7 @@ const makeCoco = async (input, conf) => {
           const subCatName = annotation.category.split(':')[1]
           mappedCat = mappedCat[subCatName] || mappedCat['other'] || mappedCat;
         }
-        const category_id = categories[mappedCat] ? categories[mappedCat].id : null
+        const category_id = conf.categories[mappedCat] ? conf.categories[mappedCat].id : null
         if (!category_id) {
           return a;
         }
@@ -987,12 +863,10 @@ const makeCoco = async (input, conf) => {
           image_id: imageObj.id,
           iscrowd: annotation.iscrowd || 0,
           segmentation: annotation.segmentation,
+          ...((typeof annotation.text === 'undefined') ? {text: annotation.text} : {}),
           ...(
             annotation.keypoints && (annotation.keypoints.length > 0)
-              ? {
-                keypoints: annotation.keypoints,
-
-              }
+              ? {keypoints: annotation.keypoints}
               : {}
           ),
         }
@@ -1014,7 +888,7 @@ const makeCoco = async (input, conf) => {
   }
 
   const resultObj = {
-    categories,
+    categories: conf.categories,
     images,
     annotations,
   }
@@ -1028,10 +902,10 @@ const makeCoco = async (input, conf) => {
     {},
   )
 
-  const imagesDir = path.join(conf.output, 'images');
+  const imagesDir = conf.subdirs ? path.join(conf.output, 'images') : conf.output;
   mkdirp.sync(imagesDir);
-  const masksDirName = `masks`;
-  const masksDir = path.join(conf.output, masksDirName);
+  // const masksDirName = `masks`;
+  const masksDir = conf.subdirs ? path.join(conf.output, 'masks') : conf.output
   mkdirp.sync(masksDir);
 
   result.images = (await executeParallel(
@@ -1054,13 +928,13 @@ const makeCoco = async (input, conf) => {
 
   const htmlPath = path.join(conf.output, `train.html`);
   log(`Saving HTML masks preview to:\n${htmlPath}\n`);
-  const resultHtml = makeMasksHtml(result.images, masksDirName)
+  const resultHtml = makeMasksHtml(result.images, masksDir)
   log(`Saving HTML preview feed to ${htmlPath}`)
   fs.writeFileSync(htmlPath, resultHtml, 'utf-8')
 
   log(
     [
-      `Categories: ${JSON.stringify(DEFAULT_VISIBLE_CATEGORIES)}`,
+      `Categories: ${JSON.stringify(CATEGORIES)}`,
       `Annotations: ${result.annotations.length}`,
       `Images: ${result.images.length}`,
       `Categories: ${result.categories.length}`
@@ -1072,7 +946,17 @@ const makeCoco = async (input, conf) => {
 };
 
 const run = async (conf) => {
-  const {no_images, temp_dir, jobs, input, output, force, limit} = conf
+  const {
+    temp_dir,
+    input,
+    output,
+    limit,
+    categories,
+    // no_images,
+    // jobs,
+    // force,
+  } = conf
+
   mkdirp.sync(output);
   const parsed = await cpMap(
     input,
@@ -1093,6 +977,12 @@ const run = async (conf) => {
       )
     },
   )
+  conf.categories = (categories && (categories.length > 0))
+    ? categories.reduce(
+      (a, k) => ({...a, [k]: CATEGORIES[k]}),
+      {}
+    ) : CATEGORIES;
+
   log(`Making COCO file...\n`);
   const result = await makeCoco(parsed, conf)
   return `Done`;

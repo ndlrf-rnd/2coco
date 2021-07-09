@@ -1,5 +1,5 @@
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -103,8 +103,7 @@ dist
 # TernJS port file
 .tern-port
 
-.idea
-.temp
-.drafts
-.ipynb_checkpoints
-
+.idea/
+.temp/
+.drafts/
+.ipynb_checkpoints/

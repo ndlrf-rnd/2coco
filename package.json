@@ -1,18 +1,54 @@
 {
-  "name": "2coco",
+  "name": "@ndlrf/2coco",
   "description": "Converts METS/ALTO/Page.XML datasets to COCO dataset format",
-  "version": "0.3.0",
+  "version": "1.0.2",
+  "license": "Apache-2.0",
+  "tags": [
+    "COCO",
+    "datasets",
+    "PAGE.XML",
+    "METS",
+    "ALTO",
+    "baseline",
+    "segmentation"
+  ],
+  "authors": [
+    {
+      "name": "National electronic library of Russian Federation",
+      "url": "https://rusneb.ru"
+    },
+    {
+      "name": "Russian state library",
+      "url": "https://rsl.ru"
+    },
+    {
+      "name": "Ilya Kutukov",
+      "url": "https://github.com/mrjj/",
+      "email": "i@leninka.ru"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ndlrf-rnd/2coco.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ndlrf-rnd/2coco/issues",
+    "email": "i@leninka.ru"
+  },
+  "entry": {
+    "index": "2coco.js"
+  },
   "dependencies": {
     "argparse": "2.0.1",
-    "glob": "7.1.6",
+    "canvas": "2.8.0",
+    "glob": "7.1.7",
     "jsonata": "1.8.4",
+    "lodash.compact": "3.0.1",
     "lodash.omit": "4.5.0",
     "lodash.sortby": "4.7.0",
-    "sharp": "0.27.2",
-    "canvas": "2.7.0",
-    "xml-js": "1.6.11",
-    "mkdirp": "1.0.4"
+    "mkdirp": "1.0.4",
+    "sharp": "0.28.3",
+    "xml-js": "1.6.11"
   },
-  "main": "2coco.js",
-  "private": true
+  "main": "2coco.js"
 }

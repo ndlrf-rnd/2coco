@@ -348,7 +348,12 @@ const getColorForId = (id, isBorder = false) => {
   */
 }
 
+const UNKNOWN_CATEGORY_COLOR = 'transparent';
+const UNKNOWN_CATEGORY_SKELETON_COLOR = 'transparent';
+
 module.exports = {
   getColorForId,
-  COLORS
+  COLORS,
+  UNKNOWN_CATEGORY_COLOR,
+  UNKNOWN_CATEGORY_SKELETON_COLOR,
 }

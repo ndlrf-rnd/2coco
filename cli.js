@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const argparse = require('argparse');
+const {CATEGORIES} = require("./categories");
 
 const PACKAGE_METADATA_PATH = './package.json'
 const PACKAGE_METADATA = JSON.parse(fs.readFileSync(PACKAGE_METADATA_PATH, 'utf-8'))
@@ -21,6 +22,49 @@ const parseArgs = (args) => {
       version: VERSION
     }
   )
+  parser.add_argument(
+    '--categories',
+    {
+      action: 'append',
+      choices: Object.keys(CATEGORIES).sort(),
+    }
+  )
+  parser.add_argument(
+    '--no-skeleton',
+    {
+      help: 'Don\'t paint skeletons',
+      action: ['store_true'],
+    }
+  )
+
+  parser.add_argument(
+    '--no-borders',
+    {
+      help: 'Don\'t paint borders',
+      action: ['store_true'],
+    }
+  )
+  parser.add_argument(
+    '--no-masks',
+    {
+      help: 'Don\'t render and save color masks',
+      action: ['store_true'],
+    }
+  )
+  parser.add_argument(
+    '--no-gt',
+    {
+      help: 'Don\'t render binary ground truth masks',
+      action: ['store_true'],
+    }
+  )
+  parser.add_argument(
+    '--no-gt-bg',
+    {
+      help: 'Don\'t render binary ground truth mask for background (inverted sum of all binary masks)',
+      action: ['store_true'],
+    }
+  )
 
   parser.add_argument(
     '-f', '--force', '--overwrite',
@@ -34,6 +78,13 @@ const parseArgs = (args) => {
     '-o', '--output',
     {
       help: 'output path',
+    },
+  );
+  parser.add_argument(
+    '-s', '--subdirs', '--create-subdirs',
+    {
+      help: 'Create images and folders subdirs',
+      action: ['store_true'],
     },
   );
 
@@ -55,9 +106,17 @@ const parseArgs = (args) => {
     },
   );
   parser.add_argument(
-    '--key-points', '--k',
+    '--ignore-key-points', '-P',
     {
-      help: 'Render only key points structures',
+      help: 'Don\'t render key points',
+      action: ['store_true'],
+      default: false,
+    },
+  );
+  parser.add_argument(
+    '--no-fill', '-F',
+    {
+      help: 'Don\'t fill masks primitives',
       action: ['store_true'],
       default: false,
     },
@@ -104,6 +163,7 @@ const parseArgs = (args) => {
       type: 'int',
     },
   );
+
 
   return parser.parse_args(args);
 };
