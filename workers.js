@@ -1,5 +1,7 @@
 const cluster = require('cluster');
+const cloneDeep = require('lodash.clonedeep');
 const os = require('os');
+
 
 const DEFAULT_JOBS = Math.max(2, parseInt(process.env.JOBS, 10) || (os.cpus().length - 1));
 const WORKER_SYNC = process.env.WORKER_SYNC || (process.env.NODE_ENV === 'test');
@@ -14,13 +16,43 @@ const flattenDeep = arr => {
   for (const a of arr) {
     if (Array.isArray(a)) {
       flattened = [...flattened, ...a];
-      flattened = [...flattenDeep(flattened)]
+      flattened = [...flattenDeep(flattened)];
     } else {
       flattened.push(a);
     }
   }
   return flattened;
+};
+
+
+/* Source: https://github.com/moll/json-stringify-safe/blob/master/stringify.js */
+function serializer (replacer, cycleReplacer)  {
+  let stack = [];
+  let keys = [];
+
+  if (cycleReplacer == null) cycleReplacer = function (key, value) {
+    if (stack[0] === value) return '[Circular ~]';
+    return '[Circular ~.' + keys.slice(0, stack.indexOf(value)).join('.') + ']';
+  };
+
+  return function (key, value) {
+    if (stack.length > 0) {
+      const thisPos = stack.indexOf(this);
+      ~thisPos ? stack.splice(thisPos + 1) : stack.push(this);
+      ~thisPos ? keys.splice(thisPos, Infinity, key) : keys.push(key);
+      if (~stack.indexOf(value)) value = cycleReplacer.call(this, key, value);
+    } else stack.push(value);
+
+    return replacer == null ? value : replacer.call(this, key, value);
+  };
 }
+
+/* Source: https://github.com/moll/json-stringify-safe/blob/master/stringify.js */
+const stringify = (obj, replacer, spaces, cycleReplacer) => JSON.stringify(
+  obj,
+  serializer(replacer, cycleReplacer),
+  spaces,
+);
 
 global.WORKERS = [];
 global.WORKERS_ONLINE = 0;
@@ -37,18 +69,18 @@ const initWorker = (handlers = global.TASK_TYPE_HANDLERS, jobs = DEFAULT_JOBS) =
   } else if (cluster.isWorker) {
     process.on(
       'message',
-      ({task, data, ctx, workerId, taskId}) => {
+      ({ task, data, ctx, workerId, taskId }) => {
         const onWorkerError = (err) => {
           const errorStr = isError(err) ? `${err.message}\n${err.stack}\n` : `${err}\n`;
           process.stderr.write(`[WORKER:${process.pid}] ERROR: ${errorStr}\n`);
-          process.send({
+          process.send(cloneDeep({
             task, // task type
             ctx,
             error: errorStr,
             workerId,
             taskId,
             progress: 1,
-          });
+          }));
         };
         const handler = global.TASK_TYPE_HANDLERS[task];
         if (typeof handler === 'undefined') {
@@ -70,31 +102,30 @@ const initWorker = (handlers = global.TASK_TYPE_HANDLERS, jobs = DEFAULT_JOBS) =
   }
 };
 
-
 const processQueue = () => {
   if (cluster.isMaster) {
     if ((!global.TASK_HANDLER) && (global.TASK_HANDLERS.length > 0)) {
       global.TASK_HANDLER = global.TASK_HANDLERS.pop();
-      const {inputArr, task, ctx} = global.TASK_HANDLER;
+      const { inputArr, task, ctx } = global.TASK_HANDLER;
       const chunkSize = Math.ceil(inputArr.length / global.JOBS);
       // Round-robin distribute data items to process
-      const workerData = []
+      const workerData = [];
       for (let i = 0; i < inputArr.length; i += 1) {
         const assignToWorkerId = i % global.WORKERS.length;
         if (!workerData[assignToWorkerId]) {
-          workerData[assignToWorkerId] = [inputArr[i]]
+          workerData[assignToWorkerId] = [inputArr[i]];
         } else {
-          workerData[assignToWorkerId].push(inputArr[i])
+          workerData[assignToWorkerId].push(inputArr[i]);
         }
       }
       const assignees = (inputArr.length >= global.WORKERS.length)
-          ? global.WORKERS
-          : global.WORKERS.slice(0, inputArr.length);
+        ? global.WORKERS
+        : global.WORKERS.slice(0, inputArr.length);
 
-              info(`[CLUSTER:${process.pid}] Starting execution of task "${task}" (${forceArray(inputArr).length} records) using ${assignees.length} workers\n`);
+      info(`[CLUSTER:${process.pid}] Starting execution of task "${task}" (${forceArray(inputArr).length} records) using ${assignees.length} workers\n`);
       assignees.forEach(
         (w, idx) => {
-          const data = workerData[idx]
+          const data = workerData[idx];
           w.send({
             task,
             ctx,
@@ -151,7 +182,6 @@ const onWorkerDisconnect = (err) => {
   tryFinalizeCurrent();
 };
 
-
 const onWorkerMessage = (m) => {
   if (!global.TASK_HANDLER) {
     const msg = `[WORKER:${process.pid}] Mismatch task serial ${m.taskId}`;
@@ -172,7 +202,6 @@ const onWorkerMessage = (m) => {
   tryFinalizeCurrent();
 };
 
-
 const executeParallel = (
   task,
   inputArr,
@@ -192,7 +221,6 @@ const executeParallel = (
         }
       } else if (cluster.isMaster) {
 
-
         info(`[CLUSTER:${process.pid}] Scheduling task "${task}" to process ${forceArray(inputArr).length} records\n`);
         global.TASK_HANDLERS.push(
           {
@@ -203,7 +231,7 @@ const executeParallel = (
             taskId: global.TASK_ID_SERIAL,
             recordsCount: forceArray(inputArr).length,
             startTsSec: (new Date()).getTime() / 1000,
-            jobs: Math.min(global.JOBS, inputArr.length)  ,
+            jobs: Math.min(global.JOBS, inputArr.length),
             inputArr,
             ctx,
             tasksFailed: 0,

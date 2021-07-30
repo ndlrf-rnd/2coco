@@ -31,7 +31,7 @@
           'segmentation': [
             $.elements[$match($.name, /Coords$/)] ?
               $.elements[$match($.name, /Coords$/)].[
-                $boolean($.attributes.points) ? $.attributes.points.$split($, /[ ,]/).$number($) : undefined
+                $boolean($.attributes.points) ? $.attributes.points.$split($, /[ ,]/)[$].$number($) : undefined
               ].*
             : undefined,
 

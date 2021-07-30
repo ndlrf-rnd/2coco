@@ -1,0 +1,28 @@
+html, body, .container {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    border: 0;
+
+}
+img.mask:hover {
+    opacity: 1.0;
+}
+
+img.mask {
+    opacity: 0.25;
+}
+
+.block {
+    cursor: pointer;
+    overflow: hidden;
+    display: inline-block;
+    max-width: 512px;
+    height: auto !important;
+    background-repeat: no-repeat;
+    background-position: center;
+    text-align: center;
+    white-space: nowrap;
+}

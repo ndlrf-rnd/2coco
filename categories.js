@@ -22,19 +22,19 @@ const CATEGORIES = {
     name: CATEGORY_TABLE,
     supercategory: CATEGORY_TABLE,
     id: 2,
-    color: COLORS.green['700']
+    color: COLORS.purple['500']
   },
   [CATEGORY_FIGURE]: {
     name: CATEGORY_FIGURE,
     supercategory: CATEGORY_FIGURE,
     id: 3,
-    color: COLORS.amber['700']
+    color: COLORS.amber['500']
   },
   [CATEGORY_SEPARATOR]: {
     name: CATEGORY_SEPARATOR,
     supercategory: CATEGORY_SEPARATOR,
     id: 4,
-    color: COLORS.red['500'],
+    color: COLORS.red['400'],
     // skeleton_color: 'transparent',
   },
   [CATEGORY_TEXT_BLOCK]: {
@@ -57,9 +57,9 @@ const CATEGORIES = {
     // keypoints: ['baseline_left', 'baseline_right'],
     // skeleton: [[1, 2]],
     id: 7,
-    color: COLORS.teal['700'],
-    skeleton_color: COLORS.teal['500'],
-    border_v_color: COLORS.teal['300'],
+    // color: COLORS.green['400'], // NO FILL
+    skeleton_color: COLORS.green['600'],
+    border_v_color: COLORS.green['200'],
     // border_h_color: COLORS.teal['100'],
   },
   [CATEGORY_WORD]: {
@@ -68,8 +68,8 @@ const CATEGORIES = {
     // keypoints: ['baseline_left', 'baseline_right'],
     // skeleton: [[1, 2]],
     id: 8,
-    color: COLORS.indigo['700'],
-    skeleton_color: COLORS.indigo['500'],
+    // color: COLORS.indigo['500'], // NO FILL
+    skeleton_color: COLORS.indigo['700'],
     border_v_color: COLORS.indigo['300'],
     border_h_color: COLORS.indigo['100'],
   },
@@ -79,8 +79,8 @@ const CATEGORIES = {
     // keypoints: ['baseline_left', 'baseline_right'],
     // skeleton: [[1, 2]],
     id: 9,
-    color: COLORS.blue['700'],
-    skeleton_color: COLORS.blue['500'],
+    // color: COLORS.blue['500'], // NO FILL
+    skeleton_color: COLORS.blue['700'],
     border_v_color: COLORS.blue['300'],
     border_h_color: COLORS.blue['100'],
   },

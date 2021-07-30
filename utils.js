@@ -22,7 +22,6 @@ const prettyBytes = (num, decimals = 2) => {
   return `${(neg ? '-' : '') + num} ${units[exponent]}`;
 };
 
-
 /**
  * Pad string on left side
  * @param str
@@ -48,31 +47,62 @@ const padRight = (str, len, sym = ' ') => [
   `${sym}`.repeat(Math.max(len - `${str}`.length, 0)),
 ].join('');
 
-
 /**
  *
  * @param objects Array<Object<{String: Object}>>
  */
 const mergeObjects = (objects) => objects.reduce(
-  (a, o) => Object.keys(o || {}).reduce(
-    (aa, kk) => ({
-      ...aa,
-      [kk]: {
-        ...(aa[kk] || {}),
-        ...(o[kk] || {})
+  (a, o, idx) => {
+    const keys = Object.keys(o || {});
+    if (process.env.DEBUG) {
+      process.stdout.write(
+        [
+          `Merging objects ${idx + 1} / ${objects.length}, ${keys.length} keys:`,
+          `Existing keys:`,
+          ...Object.keys(a).map(
+            ak => `${ak}\t${Object.keys(a[ak]).length}`,
+          ),
+        ].map(s => `${s}\n`).join(''),
+      );
+    }
+//     const aa = {};
+//     for (let i =0; i<keys.length; i+=1) {
+// const key = keys[i];
+// const oo = (typeof o[kk] === 'object' ? o[kk] : {});
+//       if (typeof aa[key] !== 'undefined') {
+//         aa[key] = {
+//         ...aa[kk],
+//         ...oo,
+//         }
+//       } else {
+//
+//       }
+//     }
+
+    for (let i = 0; i < keys.length; i += 1) {
+      const key = keys[i];
+      // return keys.reduce(
+      if (!a.hasOwnProperty(key)) {
+        a[key] = { ...o[key] };
+      } else {
+        const subKeys = Object.keys(o[key]);
+        for (let j = 0; j < subKeys.length; j += 1) {
+          const subKey = subKeys[j];
+          a[key][subKey] = o[key][subKey];
+        }
       }
-    }),
-    a
-  ),
-  {}
-)
+    }
+    return a;
+  },
+  {},
+);
 
 const seg2bbox = (seg) => {
   seg = seg.reduce((a, o) => ([...a, ...(Array.isArray(o) ? o : [o])]), []);
   if (seg.length < 2) {
-    return [0, 0, 0, 0]
+    return [0, 0, 0, 0];
   }
-  let res = [+Infinity, +Infinity, -Infinity, -Infinity]
+  let res = [+Infinity, +Infinity, -Infinity, -Infinity];
   for (let i = 0; i < seg.length; i += 1) {
     const v = seg[i];
     if (i % 2 === 0) {
@@ -88,10 +118,9 @@ const seg2bbox = (seg) => {
     res[0],
     res[1],
     res[2] - res[0],
-    res[3] - res[1]
-  ]
-}
-
+    res[3] - res[1],
+  ];
+};
 
 const bbox2seg = (bbox) => ([
   bbox[0],
@@ -110,7 +139,27 @@ const bbox2seg = (bbox) => ([
   bbox[1],
 ]);
 
+const hex2rgba = (hexa, alpha = 1.0) => {
+  hexa = `${hexa || ''}`.replace(/^#?/g, '#');
+  if ((hexa.length < 4) || (hexa.length > 9)) {
+    return null;
+  }
+  if ((hexa.length === 4) || (hexa.length === 5)) {
+    // Short notation line '#AB3' or '#AB56'
+    hexa = `#${hexa.slice(1).forEach(v => v + v).join('')}`
+  }
+  const r = parseInt(hexa.slice(1, 3), 16);
+  const g = parseInt(hexa.slice(3, 5), 16);
+  const b = parseInt(hexa.slice(5, 7), 16);
+  let a = alpha;
+  if (hexa.length > 7) {
+    a = parseInt(hexa.slice(7, 9), 16) / 255;
+  }
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+};
+
 module.exports = {
+  hex2rgba,
   forceArray,
   prettyBytes,
   padLeft,
@@ -118,4 +167,4 @@ module.exports = {
   mergeObjects,
   seg2bbox,
   bbox2seg,
-}
+};
