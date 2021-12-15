@@ -29,6 +29,13 @@ const parseArgs = (args) => {
     },
   );
   parser.add_argument(
+    '--mask-categories',
+    {
+      action: 'append',
+      choices: Object.keys(CATEGORIES).sort(),
+    },
+  );
+  parser.add_argument(
     '--no-skeleton',
     {
       help: 'Don\'t paint skeletons',
@@ -57,22 +64,6 @@ const parseArgs = (args) => {
       action: ['store_true'],
     },
   );
-  parser.add_argument(
-    '--no-gt-bg',
-    {
-      help: 'Don\'t render binary ground truth mask for background (inverted sum of all binary masks)',
-      action: ['store_true'],
-    },
-  );
-
-  parser.add_argument(
-    '-f', '--force', '--overwrite',
-    {
-      help: 'Force re-create existing files',
-      action: ['store_true'],
-    },
-  );
-
   parser.add_argument(
     '-o', '--output',
     {
@@ -174,7 +165,7 @@ const parseArgs = (args) => {
     '--lines-width', '-w',
     {
       help: 'Outlines and object COCO skeleton lines thickness in raw pixels',
-      default: 5,
+      default: 7,
       type: 'int',
     },
   );

@@ -91,9 +91,24 @@
       ]
     },
     {
-      "name": "TextBlock",
-      "supercategory": "TextBlock",
+      "name": "TextParagraph",
+      "supercategory": "TextParagraph",
       "id": 7,
+      "keypoints": [
+        "baseline_left",
+        "baseline_right"
+      ],
+      "skeleton": [
+        [
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "name": "TextSpecial",
+      "supercategory": "TextSpecial",
+      "id": 8,
       "keypoints": [
         "baseline_left",
         "baseline_right"
@@ -108,7 +123,7 @@
     {
       "name": "TextLine",
       "supercategory": "TextLine",
-      "id": 8,
+      "id": 9,
       "keypoints": [
         "baseline_left",
         "baseline_right"
@@ -123,7 +138,7 @@
     {
       "name": "TopMargin",
       "supercategory": "TopMargin",
-      "id": 9,
+      "id": 10,
       "keypoints": [
         "baseline_left",
         "baseline_right"

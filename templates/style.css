@@ -2,10 +2,10 @@ html, body, .container {
     height: 100%;
     width: 100%;
     overflow: hidden;
-    margin: 0;
+    /* margin: 0; */
     padding: 0;
     border: 0;
-
+    font-family: "Trebuchet MS", Verdana, sans-serif;
 }
 img.mask:hover {
     opacity: 1.0;
@@ -25,4 +25,32 @@ img.mask {
     background-position: center;
     text-align: center;
     white-space: nowrap;
+}
+.openseadragon-container {
+    background-color: #808080!important;
+}
+.toolbar {
+    box-shadow: 0 4px 5px 0 rgb(0 0 0 / 14%), 0 1px 10px 0 rgb(0 0 0 / 12%), 0 2px 4px -1px rgb(0 0 0 / 20%);
+    background: white;
+    padding: 8px;
+    display: flex;
+}
+.toolbar span {
+    flex: auto;
+    /* margin: 8px!important; */
+}
+.toolbar span a {
+    color: blue;
+    text-align: center;
+    line-height: 100%;
+    vertical-align: top;
+}
+
+.toolbar span a:hover {
+    opacity: 0.75;
+}
+.toggle-overlay-status {
+    color: black;
+    opacity: 0.5;
+    font-size: 75%;
 }

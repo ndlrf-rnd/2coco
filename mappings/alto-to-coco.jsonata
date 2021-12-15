@@ -15,7 +15,7 @@
         attributes.POINTS.$split($, /[ ,]/).$number($)
       ];
       {
-          'category': $block.name,
+          'category': $block.attributes.TYPE ? $block.attributes.TYPE : $block.name,
           'id': $block.attributes.ID,
           'styleRefs': $block.attributes.STYLEREFS.$split($, ' '),
           'tagsRefs': $block.attributes.TAGSREFS.$split($, ' '),

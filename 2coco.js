@@ -54,7 +54,7 @@ const ALTO_TO_COCO_JSONATA_PATH = path.join(__dirname, 'mappings/alto-to-coco.js
 
 const LOG_DIR = path.join(__dirname, 'logs');
 const DEFAULT_SHARP_PARAMS = { limitInputPixels: false };
-const DEFAULT_OPACITY = 0.333;
+const DEFAULT_OPACITY = 1.0;
 
 mkdirp.sync(LOG_DIR);
 
@@ -73,22 +73,33 @@ const log = (message) => {
   fs.appendFileSync(LOG_PATH, message.replace(/([\n\r]+)/uig, `\$1[${cluster.isWorker ? 'worker' : 'master'}:${process.pid}] `), 'utf-8');
 };
 
+/**
+ * Convert arrays to TSV
+ * @param arrs {Array<Array<*>>}
+ * @returns {String}
+ */
+const arrs2tsv = arrs => forceArray(arrs).map(
+  row => `${forceArray(row).join('\t')}\n`,
+).join('');
+
 const parseMetsExpression = jsonataRunner(fs.readFileSync(METS_JSONATA_PATH, 'utf-8'));
 const pageToCocoExpression = jsonataRunner(fs.readFileSync(PAGE_XML_TO_COCO_JSONATA_PATH, 'utf-8'));
 const altoToCocoExpression = jsonataRunner(fs.readFileSync(ALTO_TO_COCO_JSONATA_PATH, 'utf-8'));
 
 const processImages = async (images, ctx, workerId) => {
   const { colorToMaskId } = ctx;
+
   const processImage = async (im, idx) => {
-    log(
-      `\n[WORKER:${workerId}:${padLeft(idx + 1, Math.ceil(Math.log10(images.length)), '0')}/${images.length}] ${im.file_name}`,
-    );
     const t1 = (new Date()).getTime();
 
-    // const categoriesCount = (Array.isArray(ctx.categories) ? ctx.categories : Object.keys(ctx.categories || {})).length
-    const imgAnnotations = (Array.isArray(ctx.annotations) ? ctx.annotations : Object.values(ctx.annotations || {})).filter(
+    const imgAnnotations = (
+      Array.isArray(ctx.annotations)
+        ? ctx.annotations
+        : Object.values(ctx.annotations || {})
+    ).filter(
       ({ image_id }) => image_id === im.id,
     );
+
     if (imgAnnotations.length === 0) {
       return null;
     }
@@ -100,6 +111,8 @@ const processImages = async (images, ctx, workerId) => {
     let outputFilePath = path.join(ctx.imagesDir, outputFileName);
 
     if (fs.existsSync(im.file_name)) {
+
+      // Get image metadata
       const image = sharp(im.file_name, DEFAULT_SHARP_PARAMS);
       const { density, format, space, channels, width, height } = await image.metadata();
       if ((!width) || (!height) || (!fs.existsSync(im.file_name))) {
@@ -120,395 +133,448 @@ const processImages = async (images, ctx, workerId) => {
         im.width = width;
         im.height = height;
       }
-      if (ctx.no_images) {
-        log(` -[SKIP]-X due --no-images`);
-      } else {
-        let convert = true;
-        if (fs.existsSync(outputFilePath)) {
-          if (ctx.force) {
-            fs.unlinkSync(outputFilePath);
-          } else {
-            convert = false;
-          }
-        }
-        if (convert) {
-          await sharp(im.file_name, DEFAULT_SHARP_PARAMS)
-            .resize(im.width, im.height)
-            .toFile(outputFilePath);
-          if (!fs.existsSync(outputFilePath)) {
-            log(` ERROR: failed to convert\n`);
-            return null;
-          }
-        }
 
-        //
-        // if (!ctx.no_dzi) {
-        //   await sharp(im.file_name)
-        //     .resize(im.width, im.height)
-        //     .tile({
-        //       size: DZI_DEFAULT_TILE_SIZE,
-        //       overlap: 0,
-        //       angle: 0,
-        //       container: 'zip', // container, with value fs (filesystem) or zip (compressed file).
-        //       layout: 'dz',
-        //       center: false,
-        //       skipBlanks: -1,
-        //     })
-        //     .toFile(outputPath + '.dz');
-        // }
+      //
+      // if (!ctx.no_dzi) {
+      //   await sharp(im.file_name)
+      //     .resize(im.width, im.height)
+      //     .tile({
+      //       size: DZI_DEFAULT_TILE_SIZE,
+      //       overlap: 0,
+      //       angle: 0,
+      //       container: 'zip', // container, with value fs (filesystem) or zip (compressed file).
+      //       layout: 'dz',
+      //       center: false,
+      //       skipBlanks: -1,
+      //     })
+      //     .toFile(outputPath + '.dz');
+      // }
 
-        const srcSize = fs.statSync(im.file_name).size;
-        const dstSize = fs.statSync(outputFilePath).size;
-        const inputPath = im.file_name;
-        im.file_name = path.relative(ctx.output, outputFilePath);
+      const srcSize = fs.statSync(im.file_name).size;
+      const inputPath = im.file_name;
+      im.file_name = path.relative(ctx.output, outputFilePath);
 
-        const maskOutputPath = path.join(
-          ctx.masksDir,
-          im.file_name
-            .split('/')
-            .slice(-1)[0]
-            .replace(/\.([^.\/\\]+)$/u, `_GT.png`),
-        );
-        mkdirp.sync(path.dirname(maskOutputPath));
+      const maskOutputPath = path.join(
+        ctx.masksDir,
+        im.file_name
+          .split('/')
+          .slice(-1)[0]
+          .replace(/\.([^.\/\\]+)$/u, `_GT.png`),
+      );
+      mkdirp.sync(path.dirname(maskOutputPath));
 
-        const textCategoryId = ctx.annotations.filter(({ name }) => name === CATEGORY_TEXT_LINE).id;
-        const printSpaceCategoryId = ctx.annotations.filter(({ name }) => name === CATEGORY_PRINT_SPACE).id;
-        // const textCategoryId = ctx.annotations.filter(({name}) => name === CATEGORY_PRINT_SPACE).id
+      const textCategoryId = ctx.annotations.filter(({ name }) => name === CATEGORY_TEXT_LINE).id;
+      const printSpaceCategoryId = ctx.annotations.filter(({ name }) => name === CATEGORY_PRINT_SPACE).id;
+      // const textCategoryId = ctx.annotations.filter(({name}) => name === CATEGORY_PRINT_SPACE).id
 
-        // const textLineAnnotations = imgAnnotations.filter(({category_id}) => category_id === textCategoryId);
+      // const textLineAnnotations = imgAnnotations.filter(({category_id}) => category_id === textCategoryId);
 
-        let annotations = imgAnnotations.filter(
-          ({ category_id }) => [
-            textCategoryId,
-            printSpaceCategoryId,
-          ].indexOf(category_id) === -1,
-        ).map(
-          (ann) => {
-            const rescaleX = ann.width ? im.width / ann.width : 1;
-            const rescaleY = ann.height ? im.height / ann.height : 1;
-            const rescale = Math.min(rescaleX, rescaleY);
-            ann.segmentation = (
-              Array.isArray(ann.segmentation[0])
-                ? ann.segmentation
-                : [ann.segmentation]
-            ).map(
-              poly => poly.map(v => Math.round(v * rescale)),
+      let annotations = imgAnnotations.filter(
+        ({ category_id }) => [
+          textCategoryId,
+          printSpaceCategoryId,
+        ].indexOf(category_id) === -1,
+      ).map(
+        (ann) => {
+          const rescaleX = ann.width ? im.width / ann.width : 1;
+          const rescaleY = ann.height ? im.height / ann.height : 1;
+          const rescale = Math.min(rescaleX, rescaleY);
+          ann.segmentation = (
+            Array.isArray(ann.segmentation[0])
+              ? ann.segmentation
+              : [ann.segmentation]
+          ).map(
+            poly => poly.map(v => Math.round(v * rescale)),
+          );
+          if (ann.keypoints) {
+            ann.keypoints = ann.keypoints.map(
+              (v, idx) => (idx % 3 === 2) ? v : v * rescale,
             );
-            if (ann.keypoints) {
-              ann.keypoints = ann.keypoints.map(
-                (v, idx) => (idx % 3 === 2) ? v : v * rescale,
-              );
-            }
-            ann.bbox = (ann.bbox && (ann.bbox.length === 4) ? ann.bbox : seg2bbox(ann.segmentation)).map(
-              v => Math.round(v * rescale),
-            );
-            ann.segmentation = ann.segmentation || bbox2seg(ann.bbox);
-            ann.area = ann.bbox[2] * ann.bbox[3];
-            return ann;
-          },
-        );
+          }
+          ann.bbox = (ann.bbox && (ann.bbox.length === 4) ? ann.bbox : seg2bbox(ann.segmentation)).map(
+            v => Math.round(v * rescale),
+          );
+          ann.segmentation = ann.segmentation || bbox2seg(ann.bbox);
+          ann.area = ann.bbox[2] * ann.bbox[3];
+          return ann;
+        },
+      );
 
-        const canvasBlock = new Canvas(im.width, im.height);
-        const canvasBlockCtx = canvasBlock.getContext('2d', { alpha: true, pixelFormat: 'RGBA32' });
-        canvasBlockCtx.antialias = 'none';
-        canvasBlockCtx.lineJoin = 'miter';
-        canvasBlockCtx.lineWidth = ctx.lines_width;
-        canvasBlockCtx.strokeStyle = 'transparent';
+      const canvasBlock = new Canvas(im.width, im.height);
+      const canvasBlockCtx = canvasBlock.getContext('2d', { alpha: true, pixelFormat: 'RGBA32' });
+      canvasBlockCtx.antialias = 'none';
+      canvasBlockCtx.lineJoin = 'miter';
+      canvasBlockCtx.lineWidth = ctx.lines_width;
+      canvasBlockCtx.strokeStyle = 'transparent';
 
-        const binMaskCanvases = [];
-        const binMaskCtxes = [];
-        for (let i = 0; i < Object.keys(colorToMaskId).length; i += 1) {
-          const bmc = new Canvas(im.width, im.height);
-          binMaskCanvases.push(bmc);
-          const bmctx = bmc.getContext('2d', { alpha: false });
-          bmctx.antialias = 'none';
-          bmctx.lineJoin = 'miter';
-          bmctx.strokeStyle = COLORS.white;
-          bmctx.lineWidth = ctx.lines_width;
-          binMaskCtxes.push(bmctx);
+      const binMaskCanvases = [];
+      const binMaskCtxes = [];
+      for (let i = 0; i < Object.keys(colorToMaskId).length; i += 1) {
+        const bmc = new Canvas(im.width, im.height);
+        binMaskCanvases.push(bmc);
+        const bmctx = bmc.getContext('2d', { alpha: false });
+        bmctx.antialias = 'none';
+        bmctx.lineJoin = 'miter';
+        bmctx.strokeStyle = COLORS.white;
+        bmctx.lineWidth = ctx.lines_width;
+        binMaskCtxes.push(bmctx);
 
-        }
-        // console.error('binMaskCtxes', binMaskCtxes);
-        sortBy(annotations, ['category_id', 'id']).forEach(
-          (ann) => {
-            const annCat = Object.values(CATEGORIES).filter(
-              ({ id }) => id === ann.category_id,
-            )[0] || {}; // TODO: Rly need object default here?!
+      }
+      // console.error('binMaskCtxes', binMaskCtxes);
+      // console.log('ctx.categories', ctx.categories)
+      sortBy(annotations, ['category_id', 'id']).forEach(
+        (ann) => {
+          const annCat = Object.values(ctx.categories,
+            // CATEGORIES
+          ).filter(
+            ({ id }) => id === ann.category_id,
+          )[0] || {}; // TODO: Rly need object default here?!
+          // console.error('annCat', annCat)
+          ann.segmentation.forEach(
+            (seg) => {
+              const allSegEdges = [];
+              const vSegEdges = [];
+              const hSegEdges = [];
 
-            ann.segmentation.forEach(
-              (seg) => {
-                const allSegEdges = [];
-                const vSegEdges = [];
-                const hSegEdges = [];
+              for (let i = 0; i < seg.length; i += 2) {
+                const x1 = i < 2 ? seg[seg.length - 2] : seg[i - 2];
+                const y1 = i < 2 ? seg[seg.length - 1] : seg[i - 1];
+                const x2 = seg[i];
+                const y2 = seg[i + 1];
 
-                for (let i = 0; i < seg.length; i += 2) {
-                  const x1 = i < 2 ? seg[seg.length - 2] : seg[i - 2];
-                  const y1 = i < 2 ? seg[seg.length - 1] : seg[i - 1];
-                  const x2 = seg[i];
-                  const y2 = seg[i + 1];
-
-                  const edge = [[x1, y1], [x2, y2]];
-                  allSegEdges.push(edge);
-                  if (Math.abs(x1 - x2) >= Math.abs(y1 - y2)) {
-                    hSegEdges.push(edge);
-                  } else {
-                    vSegEdges.push(edge);
-                  }
+                const edge = [[x1, y1], [x2, y2]];
+                allSegEdges.push(edge);
+                if (Math.abs(x1 - x2) >= Math.abs(y1 - y2)) {
+                  hSegEdges.push(edge);
+                } else {
+                  vSegEdges.push(edge);
                 }
-
-                if (!ctx.no_fill) {
-                  const binMaskCtx = binMaskCtxes[colorToMaskId[annCat.color]];
-                  if (binMaskCtx) {
-                    binMaskCtx.fillStyle = COLORS.white;
-                    binMaskCtx.beginPath();
-                  }
+              }
+              if ((!ctx.no_fill) && annCat.color) {
+                const binMaskCtx = binMaskCtxes[colorToMaskId[annCat.color].maskId];
+                if (binMaskCtx) {
+                  binMaskCtx.fillStyle = COLORS.white;
+                  binMaskCtx.beginPath();
+                }
+                if (!annCat.mask) {
                   canvasBlockCtx.fillStyle = hex2rgba(annCat.color, DEFAULT_OPACITY);
                   canvasBlockCtx.beginPath();
-
-                  for (let i = 0; i < allSegEdges.length; i += 1) {
-                    const [[x1, y1], [x2, y2]] = allSegEdges[i];
-                    if ((i === 0) || (x1 !== allSegEdges[i - 1][1][0]) || (y1 !== allSegEdges[i - 1][1][1])) {
+                }
+                for (let i = 0; i < allSegEdges.length; i += 1) {
+                  const [[x1, y1], [x2, y2]] = allSegEdges[i];
+                  if ((i === 0) || (x1 !== allSegEdges[i - 1][1][0]) || (y1 !== allSegEdges[i - 1][1][1])) {
+                    if (binMaskCtx) {
+                      binMaskCtx.moveTo(x1, y1);
+                    }
+                    if (!annCat.mask) {
+                      canvasBlockCtx.moveTo(x1, y1);
+                    }
+                  }
+                  if (binMaskCtx) {
+                    binMaskCtx.lineTo(x2, y2);
+                  }
+                  if (!annCat.mask) {
+                    canvasBlockCtx.lineTo(x2, y2);
+                  }
+                }
+                if (binMaskCtx) {
+                  binMaskCtx.closePath();
+                  binMaskCtx.fill();
+                }
+                if (!annCat.mask) {
+                  canvasBlockCtx.closePath();
+                  canvasBlockCtx.fill();
+                }
+              }
+              // Edges
+              const bordersEdges = [];
+              if (!ctx.no_borders) {
+                if (annCat.border_color) {
+                  bordersEdges.push([allSegEdges, annCat.border_color]);
+                }
+                if (annCat.border_v_color) {
+                  bordersEdges.push([vSegEdges, annCat.border_v_color]);
+                }
+                if (annCat.border_h_color) {
+                  bordersEdges.push([hSegEdges, annCat.border_h_color]);
+                }
+                bordersEdges.forEach(([edges, color]) => {
+                  const binMaskCtx = binMaskCtxes[colorToMaskId[color].maskId];
+                  if (binMaskCtx) {
+                    binMaskCtx.strokeStyle = COLORS.white;
+                    binMaskCtx.beginPath();
+                  }
+                  if (!annCat.mask) {
+                    canvasBlockCtx.strokeStyle = hex2rgba(color, DEFAULT_OPACITY);
+                    canvasBlockCtx.beginPath();
+                  }
+                  for (let i = 0; i < edges.length; i += 1) {
+                    const [[x1, y1], [x2, y2]] = edges[i];
+                    if ((i === 0) || (x1 !== edges[i - 1][1][0]) || (y1 !== edges[i - 1][1][1])) {
                       if (binMaskCtx) {
                         binMaskCtx.moveTo(x1, y1);
                       }
-                      canvasBlockCtx.moveTo(x1, y1);
+                      if (!annCat.mask) {
+                        canvasBlockCtx.moveTo(x1, y1);
+                      }
                     }
                     if (binMaskCtx) {
                       binMaskCtx.lineTo(x2, y2);
                     }
-                    canvasBlockCtx.lineTo(x2, y2);
-                  }
-                  if (binMaskCtx) {
-                    binMaskCtx.closePath();
-                    binMaskCtx.fill();
-                  }
-
-                  canvasBlockCtx.closePath();
-                  canvasBlockCtx.fill();
-                }
-                // Edges
-                const bordersEdges = [];
-                if (!ctx.no_borderss) {
-
-                  if (annCat.border_color) {
-                    bordersEdges.push([allSegEdges, annCat.border_color]);
-                  }
-                  if (annCat.border_v_color) {
-                    bordersEdges.push([vSegEdges, annCat.border_v_color]);
-                  }
-                  if (annCat.border_h_color) {
-                    bordersEdges.push([hSegEdges, annCat.border_h_color]);
-                  }
-                  bordersEdges.forEach(([edges, color]) => {
-                    const binMaskCtx = binMaskCtxes[colorToMaskId[color]];
-                    if (binMaskCtx) {
-                      binMaskCtx.strokeStyle = COLORS.white;
-                      binMaskCtx.beginPath();
-                    }
-                    canvasBlockCtx.strokeStyle = hex2rgba(color, DEFAULT_OPACITY);
-                    canvasBlockCtx.beginPath();
-                    for (let i = 0; i < edges.length; i += 1) {
-                      const [[x1, y1], [x2, y2]] = edges[i];
-                      if ((i === 0) || (x1 !== edges[i - 1][1][0]) || (y1 !== edges[i - 1][1][1])) {
-                        if (binMaskCtx) {
-                          binMaskCtx.moveTo(x1, y1);
-                        }
-                        canvasBlockCtx.moveTo(x1, y1);
-                      }
-                      if (binMaskCtx) {
-                        binMaskCtx.lineTo(x2, y2);
-                      }
+                    if (!annCat.mask) {
                       canvasBlockCtx.lineTo(x2, y2);
                     }
-                    // canvasBlockCtx.closePath();
-                    if (binMaskCtx) {
-                      binMaskCtx.stroke();
-                    }
+                  }
+                  if (binMaskCtx) {
+                    binMaskCtx.stroke();
+                  }
+                  if (!annCat.mask) {
                     canvasBlockCtx.stroke();
-                  });
+                  }
+                });
+              }
+            },
+          );
+          if (
+            (!ctx.no_skeleton)
+            && ann.keypoints
+            && (ann.keypoints.length > 0)
+            && (!ctx.ignore_key_points)
+          ) {
+            /*
+              keypoints: ['baseline_left', 'baseline_right'],
+              skeleton: [[1, 2]],
+            */
+            const filteredKps = ann.keypoints.reduce(
+              (agg, kp, idx) => {
+                // Starting new
+                if (idx % 3 === 0) {
+                  agg.push([]);
                 }
+                if (idx % 3 === 2) {
+                  if (kp === 0) {
+                    // Nullify invisible and unlabeled KP
+                    agg[agg.length - 1] = null;
+                  }
+                } else {
+                  agg[agg.length - 1].push(kp);
+                }
+                return agg;
+              },
+              [],
+            );
+            let edges = [];
+            if (annCat.skeleton && annCat.skeleton.length > 0) {
+              edges = annCat.skeleton.reduce((acc, [fromId, toId]) => {
+                const from = filteredKps[fromId + 1];
+                const to = filteredKps[toId + 1];
+                if ((from !== null) && (to !== null)) {
+                  return [...acc, [from, to]];
+                } else {
+                  return acc;
+                }
+              }, []);
+            } else {
+              const visibleKps = compact(filteredKps);
+              for (let i = 1; i < visibleKps.length; i += 1) {
+                edges.push([visibleKps[i - 1], visibleKps[i]]);
+              }
+            }
+            // Draw visible edges
+            const binMaskCtx = binMaskCtxes[colorToMaskId[annCat.skeleton_color].maskId];
+            if (binMaskCtx) {
+              binMaskCtx.fillStyle = 'transparent';
+              binMaskCtx.strokeStyle = COLORS.white;
+              binMaskCtx.lineJoin = 'miter';
+              binMaskCtx.lineWidth = ctx.lines_width;
+              binMaskCtx.beginPath();
+            }
+
+            canvasBlockCtx.fillStyle = 'transparent';
+            canvasBlockCtx.strokeStyle = hex2rgba(annCat.skeleton_color, DEFAULT_OPACITY);
+            canvasBlockCtx.lineJoin = 'miter';
+            canvasBlockCtx.lineWidth = ctx.lines_width;
+            canvasBlockCtx.beginPath();
+
+            edges.forEach(
+              ([[x1, y1], [x2, y2]]) => {
+                if (binMaskCtx) {
+                  binMaskCtx.moveTo(x1, y1);
+                }
+                canvasBlockCtx.moveTo(x1, y1);
+
+                if (binMaskCtx) {
+                  binMaskCtx.lineTo(x2, y2);
+                }
+                canvasBlockCtx.lineTo(x2, y2);
               },
             );
-            if (
-              (!ctx.no_skeleton)
-              && ann.keypoints
-              && (ann.keypoints.length > 0)
-              && (!ctx.ignore_key_points)
-            ) {
-              /*
-                keypoints: ['baseline_left', 'baseline_right'],
-                skeleton: [[1, 2]],
-              */
-              const filteredKps = ann.keypoints.reduce(
-                (agg, kp, idx) => {
-                  // Starting new
-                  if (idx % 3 === 0) {
-                    agg.push([]);
-                  }
-                  if (idx % 3 === 2) {
-                    if (kp === 0) {
-                      // Nullify invisible and unlabeled KP
-                      agg[agg.length - 1] = null;
-                    }
-                  } else {
-                    agg[agg.length - 1].push(kp);
-                  }
-                  return agg;
-                },
-                [],
-              );
-              let edges = [];
-              if (annCat.skeleton && annCat.skeleton.length > 0) {
-                edges = annCat.skeleton.reduce((acc, [fromId, toId]) => {
-                  const from = filteredKps[fromId + 1];
-                  const to = filteredKps[toId + 1];
-                  if ((from !== null) && (to !== null)) {
-                    return [...acc, [from, to]];
-                  } else {
-                    return acc;
-                  }
-                }, []);
-              } else {
-                const visibleKps = compact(filteredKps);
-                for (let i = 1; i < visibleKps.length; i += 1) {
-                  edges.push([visibleKps[i - 1], visibleKps[i]]);
-                }
-              }
-              // Draw visible edges
-              const binMaskCtx = binMaskCtxes[colorToMaskId[annCat.skeleton_color]];
-              if (binMaskCtx) {
-                binMaskCtx.fillStyle = 'transparent';
-                binMaskCtx.strokeStyle = COLORS.white;
-                binMaskCtx.lineJoin = 'miter';
-                binMaskCtx.lineWidth = ctx.lines_width;
-                binMaskCtx.beginPath();
-              }
+            if (binMaskCtx) {
+              binMaskCtx.stroke();
+            }
+            canvasBlockCtx.stroke();
 
-              canvasBlockCtx.fillStyle = 'transparent';
-              canvasBlockCtx.strokeStyle = hex2rgba(annCat.skeleton_color, DEFAULT_OPACITY);
-              canvasBlockCtx.lineJoin = 'miter';
-              canvasBlockCtx.lineWidth = ctx.lines_width;
-              canvasBlockCtx.beginPath();
-
-              edges.forEach(
-                ([[x1, y1], [x2, y2]]) => {
-                  if (binMaskCtx) {
-                    binMaskCtx.moveTo(x1, y1);
-                  }
-                  canvasBlockCtx.moveTo(x1, y1);
-
-                  if (binMaskCtx) {
-                    binMaskCtx.lineTo(x2, y2);
-                  }
-                  canvasBlockCtx.lineTo(x2, y2);
-                },
-              );
-              if (binMaskCtx) {
-                binMaskCtx.stroke();
-              }
-              canvasBlockCtx.stroke();
-
-              // Draw vertical
-              // FIXME: Remove this PAGE.XML targeted hardcoded shore
-              // canvasBlockCtx.strokeStyle = annCat.color || COLORS.white;
-              // ann.segmentation.forEach(
-              //   (seg) => {
-              //     canvasBlockCtx.beginPath();
-              //     let prevX = null;
-              //     let prevY = null;
-              //     for (let i = 0; i < Math.floor(seg.length / 2); i += 1) {
-              //
-              //       const x = seg[i * 2];
-              //       const y = seg[i * 2 + 1];
-              //       if (i === 0) {
-              //         prevX = seg[seg.length - 2];
-              //         prevY = seg[seg.length - 1];
-              //         canvasBlockCtx.moveTo(prevX, prevY);
-              //
-              //       }
-              //       // Test is line somehow representing text line letter size
-              //       const isLineVertical = Math.abs(x - prevX) <= Math.abs(y - prevY);
-              //       const isBboxVertical = ann.bbox[2] <= ann.bbox[3];
-              //       if (isBboxVertical ? !isLineVertical : isLineVertical) {
-              //         canvasBlockCtx.lineTo(x, y);
-              //       } else {
-              //         canvasBlockCtx.moveTo(x, y);
-              //       }
-              //       prevX = x;
-              //       prevY = y;
-              //     }
-              //     canvasBlockCtx.stroke();
-              //   }
-              // )
+            // Draw vertical
+            // FIXME: Remove this PAGE.XML targeted hardcoded shore
+            // canvasBlockCtx.strokeStyle = annCat.color || COLORS.white;
+            // ann.segmentation.forEach(
+            //   (seg) => {
+            //     canvasBlockCtx.beginPath();
+            //     let prevX = null;
+            //     let prevY = null;
+            //     for (let i = 0; i < Math.floor(seg.length / 2); i += 1) {
+            //
+            //       const x = seg[i * 2];
+            //       const y = seg[i * 2 + 1];
+            //       if (i === 0) {
+            //         prevX = seg[seg.length - 2];
+            //         prevY = seg[seg.length - 1];
+            //         canvasBlockCtx.moveTo(prevX, prevY);
+            //
+            //       }
+            //       // Test is line somehow representing text line letter size
+            //       const isLineVertical = Math.abs(x - prevX) <= Math.abs(y - prevY);
+            //       const isBboxVertical = ann.bbox[2] <= ann.bbox[3];
+            //       if (isBboxVertical ? !isLineVertical : isLineVertical) {
+            //         canvasBlockCtx.lineTo(x, y);
+            //       } else {
+            //         canvasBlockCtx.moveTo(x, y);
+            //       }
+            //       prevX = x;
+            //       prevY = y;
+            //     }
+            //     canvasBlockCtx.stroke();
+            //   }
+            // )
+          }
+        },
+      );
+      const pngParams = { resolveWithObject: true, force: true };
+      if (!ctx.no_gt) {
+        let gtIdx = 1; // Zero is reserved for potential background mask
+        await cpMap(
+          binMaskCanvases,
+          async (binMaskCanvas, idx) => {
+            const mask = Object.values(colorToMaskId).filter(
+              ({ maskId }) => maskId === idx
+            )[0].mask;
+            if (!mask) {
+              const fn = maskOutputPath.replace(/_GT(\.[^.]+)$/u, `_GT${gtIdx}$1`);
+              await sharp(binMaskCanvas.toBuffer(), DEFAULT_SHARP_PARAMS).png(pngParams).toFile(fn);
+              gtIdx += 1;
             }
           },
         );
-        const pngParams = { resolveWithObject: true, force: true };
-        if (!ctx.no_gt) {
-          await cpMap(
-            binMaskCanvases,
-            async (binMaskCanvas, idx) => {
-              const fn = maskOutputPath.replace(/_GT(\.[^.]+)$/u, `_GT${idx}$1`);
-              await sharp(binMaskCanvas.toBuffer(), DEFAULT_SHARP_PARAMS).png(pngParams).toFile(fn);
-            },
-          );
-          if (!ctx.no_gt_bg) {
-            await sharp(canvasBlock.toBuffer(), DEFAULT_SHARP_PARAMS).threshold(254).negate().png(pngParams).toFile(
-              maskOutputPath.replace(/_GT(\.[^.]+)$/u, `_GT${binMaskCanvases.length}$1`),
-            );
-          }
-        }
-        if (!ctx.no_masks) {
-          await sharp(canvasBlock.toBuffer(), DEFAULT_SHARP_PARAMS).png(pngParams).toFile(maskOutputPath);
-        }
-
-        const t2 = (new Date()).getTime();
-        log(
-          `\n[WORKER:${workerId}:${
-            padLeft(idx + 1, Math.ceil(Math.log10(images.length)), '0')
-          }/${
-            images.length
-          }] ${
-            format
-          } ${
-            space
-          }:${
-            channels
-          }ch:${
-            srcDensity
-          } DPI (orig ${
-            density
-          } DPI) ${
-            width
-          } X ${
-            height
-          } px ${
-            inputPath
-          } ${
-            prettyBytes(srcSize, 1)
-          } --> ${
-            path.relative(ctx.output, outputFilePath)
-          } ${
-            // FIXME: update DPI for the generated mask files metadata
-            ctx.output_max_dpi
-          }DPI ${
-            // FIXME: display proper dimensions in all cases
-            im.width
-          } X ${
-            im.height
-          } px ${
-            prettyBytes(dstSize, 1)
-          } (${
-            Math.ceil((dstSize / srcSize) * 100)
-          }) done in ${
-            Math.floor(t2 - t1)
-          } ms`,
-        );
-        return {
-          ...im,
-          file_name: outputFilePath,
-        };
+        // if (!ctx.no_gt_bg) {
+        //  await sharp(canvasBlock.toBuffer(), DEFAULT_SHARP_PARAMS).threshold(254).negate().png(pngParams).toFile(
+        //    maskOutputPath.replace(/_GT(\.[^.]+)$/u, `_GT${binMaskCanvases.length}$1`),
+        //  );
+        //}
       }
+      if (!ctx.no_masks) {
+        await sharp(canvasBlock.toBuffer(), DEFAULT_SHARP_PARAMS).png(pngParams).toFile(maskOutputPath);
+      }
+      let dstSize = 0;
+
+      if (ctx.no_images) {
+        log(` -[SKIP]-X due --no-images`);
+      } else {
+        try {
+          if (fs.existsSync(outputFilePath)) {
+            fs.unlinkSync(outputFilePath);
+          }
+
+          const maskImages = await cpMap(
+            Object.values(colorToMaskId).filter(({ mask }) => mask),
+            async ({ maskId }) => {
+              const maskChannel = await sharp(binMaskCanvases[maskId].toBuffer())
+                .extractChannel(0)
+                .toBuffer();
+              const { dominant } = await image.stats();
+              return sharp({
+                create: {
+                  width: im.width,
+                  height: im.height,
+                  channels: 3,
+                  background: dominant,
+                },
+              }).png().ensureAlpha().joinChannel(
+                maskChannel,
+                {},
+              );
+            });
+
+          let resizedImage = image.resize(
+            im.width,
+            im.height,
+          );
+          if (maskImages.length > 0)
+            resizedImage = resizedImage.composite(
+              await cpMap(
+                maskImages,
+                async categoriesMask => ({
+                  input: await categoriesMask.toBuffer(),
+                }),
+              ),
+            );
+
+          await resizedImage.toFile(outputFilePath);
+          if (!fs.existsSync(outputFilePath)) {
+            log(` ERROR: failed to convert\n`);
+            return null;
+          }
+          dstSize = fs.statSync(outputFilePath).size;
+        } catch (e) {
+          console.log(`Error during image conversion:\n${e.message}\n${e.stack}`);
+        }
+      }
+
+      const t2 = (new Date()).getTime();
+      log(
+        `\n[WORKER:${workerId}:${
+          padLeft(idx + 1, Math.ceil(Math.log10(images.length)), '0')
+        }/${
+          images.length
+        }] ${
+          format
+        } ${
+          space
+        }:${
+          channels
+        }ch:${
+          srcDensity
+        } DPI (orig ${
+          density
+        } DPI) ${
+          width
+        } X ${
+          height
+        } px ${
+          inputPath
+        } ${
+          prettyBytes(srcSize, 1)
+        } --> ${
+          path.relative(ctx.output, outputFilePath)
+        } ${
+          // FIXME: update DPI for the generated mask files metadata
+          ctx.output_max_dpi
+        }DPI ${
+          // FIXME: display proper dimensions in all cases
+          im.width
+        } X ${
+          im.height
+        } px ${
+          prettyBytes(dstSize, 1)
+        } (${
+          Math.ceil((dstSize / srcSize) * 100)
+        }) done in ${
+          Math.floor(t2 - t1)
+        } ms`,
+      );
+      return {
+        ...im,
+        file_name: outputFilePath,
+      };
     }
   };
 
@@ -759,15 +825,15 @@ initWorker({
  *   images: Array<{
  *     id: Number,
  *     file_name: String,
- *     width: Int,
- *     height: Int,
+ *     width: Number,
+ *     height: Number,
  *   }>,
  *   annotations: Array<{
  *     id: Number,
  *     segmentation: Array<Array<Number>>,
  *     bbox: Array<Number>,
- *     category_id: Int,
- *     image_id: Int,
+ *     category_id: Number,
+ *     image_id: Number,
  *     category: {
  *       id: Number,
  *       name: String,
@@ -777,7 +843,7 @@ initWorker({
  *   }>
  * }
  * @param conf
- * @returns {{}}
+ * @returns {Promise<*>}
  */
 const makeCoco = async (input, conf) => {
   if (Array.isArray(input)) {
@@ -830,10 +896,6 @@ const makeCoco = async (input, conf) => {
     {},
   );
   log(` done\n`);
-  // console.error(
-  //  'fileName', fileName, 'baseName', baseName, 'fileNamesPrec', fileNamesPrec,
-  //  'IMAGES', images, 'IMAGES NOT FOUND', notFound,
-  // );
 
   const annCount = Object.keys(input.annotations || {}).length;
   log(`Merging ${annCount} annotations...\n`);
@@ -842,11 +904,6 @@ const makeCoco = async (input, conf) => {
     (a, annotationId, idx) => {
       const annotation = input.annotations[annotationId];
       const imageObj = images[annotation.file_name];
-      /*
-      if (((idx + 1) % REPORT_EVERY) === 0) {
-        log(`[${padLeft(idx + 1, Math.ceil(Math.log10(annCount)))}/${annCount}]\n`)
-      }
-      */
       if (!annotation.category) {
         return a;
       }
@@ -909,33 +966,74 @@ const makeCoco = async (input, conf) => {
     }),
     {},
   );
-  // console.error('conf.output', conf.output, 'CONF', conf);
   const imagesDir = conf.subdirs ? path.join(conf.output, 'images') : conf.output;
   mkdirp.sync(imagesDir);
-  // const masksDirName = `masks`;
   const masksDir = conf.subdirs ? path.join(conf.output, 'masks') : conf.output;
   mkdirp.sync(masksDir);
 
-  const colorToMaskId = sortBy(Object.values(conf.categories), ['id']).reduce(
+  const categoriesFrequencies = result.annotations.reduce(
+    (a, o) => {
+      a[o.category_id] = (a[o.category_id] || 0) + 1;
+      return a;
+    },
+    {},
+  );
+  process.stderr.write(
+    arrs2tsv([
+      [`Category ID`, 'Category name', `Count`],
+      ...Object.keys(categoriesFrequencies).sort().map(
+        k => ([
+          k,
+          (result.categories.filter(v => parseInt(v.id) === parseInt(k, 10))[0] || { name: '_unnamed_' }).name,
+          categoriesFrequencies[k],
+        ]),
+      ),
+    ]),
+  );
+
+  const colorToMaskId = sortBy(
+    Object.values(conf.categories),
+    ['id'],
+  ).reduce(
     (
       acc,
-      { color, border_color, border_h_color, border_v_color, skeleton_color },
+      { id, color, border_color, border_h_color, border_v_color, skeleton_color, mask, name },
     ) => {
       if ((!conf.no_fill) && color) {
-        acc[color] = acc[color] || Object.keys(acc).length;
+        acc[color] = acc[color] || { maskId: Object.keys(acc).length, categoryId: id, mask, name: `${name}` };
       }
       if ((!conf.no_skeleton) && skeleton_color) {
-        acc[skeleton_color] = acc[skeleton_color] || Object.keys(acc).length;
+        acc[skeleton_color] = acc[skeleton_color] || {
+          maskId: Object.keys(acc).length,
+          categoryId: id,
+          mask,
+          name: `${name}-skeleton`,
+        };
       }
       if (!conf.no_borders) {
         if (border_color) {
-          acc[border_color] = acc[border_color] || Object.keys(acc).length;
+          acc[border_color] = acc[border_color] || {
+            maskId: Object.keys(acc).length,
+            categoryId: id,
+            mask,
+            name: `${name}-border`,
+          };
         }
         if (border_h_color) {
-          acc[border_h_color] = acc[border_h_color] || Object.keys(acc).length;
+          acc[border_h_color] = acc[border_h_color] || {
+            maskId: Object.keys(acc).length,
+            categoryId: id,
+            mask,
+            name: `${name}-border-horizontal`,
+          };
         }
         if (border_v_color) {
-          acc[border_v_color] = acc[border_v_color] || Object.keys(acc).length;
+          acc[border_v_color] = acc[border_v_color] || {
+            maskId: Object.keys(acc).length,
+            categoryId: id,
+            mask,
+            name: `${name}-border-vertical`,
+          };
         }
       }
       return acc;
@@ -944,13 +1042,23 @@ const makeCoco = async (input, conf) => {
   );
 
   process.stderr.write(
-    [
-      `Color\tGT ID`,
-      Object.keys(colorToMaskId).sort().map(
-        k => `${[k, colorToMaskId[k]].join('\t')}\n`,
+    arrs2tsv([
+      [`Color`, 'Category ID', `Mask ID`, 'Mask'],
+      ...Object.keys(colorToMaskId).sort().map(
+        k => ([k, colorToMaskId[k].categoryId, colorToMaskId[k].maskId, colorToMaskId[k].mask]),
       ),
-    ].join(''),
+    ]),
   );
+  const colorToMaskIdJsonPath = path.join(conf.output, `colors.json`);
+  fs.writeFileSync(
+    colorToMaskIdJsonPath,
+    JSON.stringify({
+      colors: Object.keys(colorToMaskId).sort().filter(color => !colorToMaskId[color].mask),
+      labels: Object.keys(colorToMaskId).sort().filter(color => !colorToMaskId[color].mask).map(color => colorToMaskId[color].name),
+      one_hot_encoding: null,
+    }, null, 2),
+  );
+
   result.images = (await executeParallel(
     'processImages',
     result.images || [],
@@ -1039,7 +1147,6 @@ const run = async (conf) => {
     limit,
     // no_images,
     // jobs,
-    // force,
   } = conf;
 
   const inputPaths = (await cpMap(input, pGlob)).filter(
@@ -1049,12 +1156,16 @@ const run = async (conf) => {
   // console.error('INPUT PATHS', inputPaths)
   mkdirp.sync(output);
 
-  const categories = conf.categories && (conf.categories.length > 0)
-    ? conf.categories.reduce(
-      (a, k) => ({ ...a, [k]: CATEGORIES[k] }),
-      {},
-    )
-    : CATEGORIES;
+  const categories = (conf.mask_categories || []).reduce(
+    (a, k) => ({ ...a, [k]: { ...CATEGORIES[k], mask: true } }),
+    conf.categories && (conf.categories.length > 0)
+      ? conf.categories.reduce(
+        (a, k) => ({ ...a, [k]: { ...CATEGORIES[k], mask: false } }),
+        {},
+      )
+      : CATEGORIES,
+  );
+  console.error('conf.mask_categories', conf.mask_categories);
 
   const parsed = await cpMap(
     inputPaths,

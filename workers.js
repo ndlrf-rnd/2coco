@@ -2,7 +2,6 @@ const cluster = require('cluster');
 const cloneDeep = require('lodash.clonedeep');
 const os = require('os');
 
-
 const DEFAULT_JOBS = Math.max(2, parseInt(process.env.JOBS, 10) || (os.cpus().length - 1));
 const WORKER_SYNC = process.env.WORKER_SYNC || (process.env.NODE_ENV === 'test');
 
@@ -24,9 +23,8 @@ const flattenDeep = arr => {
   return flattened;
 };
 
-
 /* Source: https://github.com/moll/json-stringify-safe/blob/master/stringify.js */
-function serializer (replacer, cycleReplacer)  {
+function serializer (replacer, cycleReplacer) {
   let stack = [];
   let keys = [];
 
@@ -187,11 +185,15 @@ const onWorkerMessage = (m) => {
     const msg = `[WORKER:${process.pid}] Mismatch task serial ${m.taskId}`;
     error(msg);
   }
-  if (m.error) {
+  if (m.progress) {
+    if (global.TASK_HANDLER) {
+      global.TASK_HANDLER.results[m.workerId] = m.error;
+    }
+  } else if (m.error) {
     error(m);
     if (global.TASK_HANDLER) {
       global.TASK_HANDLER.tasksFailed += 1;
-      global.TASK_HANDLER.results[m.workerId] = m;
+      global.TASK_HANDLER.results[m.workerId] = m.error;
     }
   } else {
     if (global.TASK_HANDLER) {
