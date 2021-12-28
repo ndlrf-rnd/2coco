@@ -167,8 +167,6 @@ const processImages = async (images, ctx, workerId) => {
       const printSpaceCategoryId = ctx.annotations.filter(({ name }) => name === CATEGORY_PRINT_SPACE).id;
       // const textCategoryId = ctx.annotations.filter(({name}) => name === CATEGORY_PRINT_SPACE).id
 
-      // const textLineAnnotations = imgAnnotations.filter(({category_id}) => category_id === textCategoryId);
-
       let annotations = imgAnnotations.filter(
         ({ category_id }) => [
           textCategoryId,
@@ -232,10 +230,22 @@ const processImages = async (images, ctx, workerId) => {
           // console.error('annCat', annCat)
           ann.segmentation.forEach(
             (seg) => {
+              seg = forceArray(seg);
               const allSegEdges = [];
               const vSegEdges = [];
               const hSegEdges = [];
+              const bbox = [undefined, undefined, undefined, undefined];
+              for (let i = 0; i < seg.length; i += 2) {
+                bbox[0] = typeof bbox[0] === 'undefined' ? seg[i] : Math.min(seg[i], bbox[0]);
+                bbox[1] = typeof bbox[1] === 'undefined' ? seg[i + 1] : Math.min(seg[i + 1], bbox[1]);
+                bbox[2] = typeof bbox[2] === 'undefined' ? seg[i] : Math.max(seg[i], bbox[2]);
+                bbox[3] = typeof bbox[3] === 'undefined' ? seg[i + 1] : Math.max(seg[i + 1], bbox[3]);
 
+                const x2 = seg[i];
+                const y2 = seg[i + 1];
+              }
+
+              const is90 = Math.abs(bbox[2] - bbox[0]) < Math.abs(bbox[3] - bbox[1])
               for (let i = 0; i < seg.length; i += 2) {
                 const x1 = i < 2 ? seg[seg.length - 2] : seg[i - 2];
                 const y1 = i < 2 ? seg[seg.length - 1] : seg[i - 1];
@@ -245,9 +255,9 @@ const processImages = async (images, ctx, workerId) => {
                 const edge = [[x1, y1], [x2, y2]];
                 allSegEdges.push(edge);
                 if (Math.abs(x1 - x2) >= Math.abs(y1 - y2)) {
-                  hSegEdges.push(edge);
+                  (is90 ? vSegEdges : hSegEdges).push(edge);
                 } else {
-                  vSegEdges.push(edge);
+                  (is90 ? hSegEdges : vSegEdges).push(edge);
                 }
               }
               if ((!ctx.no_fill) && annCat.color) {
@@ -289,14 +299,15 @@ const processImages = async (images, ctx, workerId) => {
               // Edges
               const bordersEdges = [];
               if (!ctx.no_borders) {
-                if (annCat.border_color) {
+                if (annCat.border_color && (!(annCat.border_v_color || annCat.border_h_color))) {
                   bordersEdges.push([allSegEdges, annCat.border_color]);
-                }
-                if (annCat.border_v_color) {
-                  bordersEdges.push([vSegEdges, annCat.border_v_color]);
-                }
-                if (annCat.border_h_color) {
-                  bordersEdges.push([hSegEdges, annCat.border_h_color]);
+                } else {
+                  if (annCat.border_v_color) {
+                    bordersEdges.push([vSegEdges, annCat.border_v_color]);
+                  }
+                  if (annCat.border_h_color) {
+                    bordersEdges.push([hSegEdges, annCat.border_h_color]);
+                  }
                 }
                 bordersEdges.forEach(([edges, color]) => {
                   const binMaskCtx = binMaskCtxes[colorToMaskId[color].maskId];

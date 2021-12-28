@@ -15,7 +15,7 @@ node 2coco.js \
   --categories TextParagraph \
   --categories TextSpecial \
   --mask-categories Advertisement \
- --output "../newspapers/segmentation/val/retropress" \
+ --output "../newspapers/DATA/osr/val/retropress" \
   '../newspapers/retropress-val/**/*.xml'
 
 # PRImA Layout analysis
@@ -31,7 +31,7 @@ node 2coco.js \
   --categories TextParagraph \
   --categories TextSpecial \
   --mask-categories Advertisement \
-  --output "../newspapers/segmentation/train/prima-layout-analysis" \
+  --output "../newspapers/DATA/osr/train/prima-layout-analysis" \
   '../DATA/PRImA-LayoutAnalysisDataset/pc-????????.xml'
 
 
@@ -48,7 +48,7 @@ node 2coco.js \
   --categories TextParagraph \
   --categories TextSpecial \
   --mask-categories Advertisement \
- --output "../newspapers/segmentation/train/bnl-set05/" \
+ --output "../newspapers/DATA/osr/train/bnl-set05/" \
   '../DATA/BNL/set05-different-newspapers/**/*mets.xml'
 
 
@@ -65,7 +65,7 @@ node 2coco.js \
   --categories TextParagraph \
   --categories TextSpecial \
   --mask-categories Advertisement \
-  --output "../newspapers/segmentation/train/prima-newspapers/" \
+  --output "../newspapers/DATA/osr/train/prima-newspapers/" \
   '../DATA/Prima-Newspapers/pc-????????.xml'
 
 node 2coco.js \
@@ -79,7 +79,7 @@ node 2coco.js \
   --categories TextParagraph \
   --categories TextSpecial \
   --mask-categories Advertisement \
- --output "../newspapers/segmentation/test/prima-newspapers/" \
+ --output "../newspapers/DATA/osr/test/prima-newspapers/" \
   '../DATA/Prima-Newspapers/prima_newspapers_test/pc-????????.xml'
 
 
@@ -96,7 +96,7 @@ node ./2coco.js \
   --categories TextParagraph \
   --categories TextSpecial \
   --mask-categories Advertisement \
-  --output "../newspapers/segmentation/train/newseye-onb/" \
+  --output "../newspapers/DATA/osr/train/newseye-onb/" \
   '../DATA/NewsEye-ONB/*Training*/*.xml'
 
 node ./2coco.js \
@@ -110,7 +110,7 @@ node ./2coco.js \
   --categories TextParagraph \
   --categories TextSpecial \
   --mask-categories Advertisement \
-  --output "../newspapers/segmentation/test/newseye-onb/" \
+  --output "../newspapers/DATA/osr/test/newseye-onb/" \
   '../DATA/NewsEye-ONB/*Validation*/*.xml'
 
 
@@ -127,7 +127,7 @@ node ./2coco.js \
   --categories TextParagraph \
   --categories TextSpecial \
   --mask-categories Advertisement \
-  --output "../newspapers/segmentation/train/newseye-as/" \
+  --output "../newspapers/DATA/osr/train/newseye-as/" \
   '../DATA/NewsEye-AS-TrainOnly/*Training*/*.xml'
 
 
@@ -144,9 +144,9 @@ node ./2coco.js \
   --categories TextParagraph \
   --categories TextSpecial \
   --mask-categories Advertisement \
-  --output "../newspapers/segmentation/train/icpr-2020/" \
-  '../DATA/ICPR-2020-NewsEye-Text-Block-Segmentation/*train*/xmls/*.xml' \
-  '../DATA/ICPR-2020-NewsEye-Text-Block-Segmentation/*train*/images/*.*'
+  --output "../newspapers/DATA/osr/train/icpr-2020/" \
+  '../DATA/ICPR-2020-NewsEye-Text-Block-DATA/osr/*train*/xmls/*.xml' \
+  '../DATA/ICPR-2020-NewsEye-Text-Block-DATA/osr/*train*/images/*.*'
 
 node ./2coco.js \
   --output-max-dpi 300 \
@@ -159,9 +159,9 @@ node ./2coco.js \
   --categories TextParagraph \
   --categories TextSpecial \
   --mask-categories Advertisement \
- --output "../newspapers/segmentation/test/icpr-2020/" \
-  '../DATA/ICPR-2020-NewsEye-Text-Block-Segmentation/*test*/xmls/*.xml' \
-  '../DATA/ICPR-2020-NewsEye-Text-Block-Segmentation/*test*/images/*.*'
+ --output "../newspapers/DATA/osr/test/icpr-2020/" \
+  '../DATA/ICPR-2020-NewsEye-Text-Block-DATA/osr/*test*/xmls/*.xml' \
+  '../DATA/ICPR-2020-NewsEye-Text-Block-DATA/osr/*test*/images/*.*'
 
 
 # NewsEye ATR
@@ -177,7 +177,7 @@ node --trace-warnings ./2coco.js \
   --categories TextParagraph \
   --categories TextSpecial \
   --mask-categories Advertisement \
-  --output "../newspapers/segmentation/train/newseye-atr" \
+  --output "../newspapers/DATA/osr/train/newseye-atr" \
   '../DATA/NewsEye-ATR/*Training*/fk*.xml'
 
 
@@ -192,7 +192,7 @@ node --trace-warnings ./2coco.js \
   --categories TextParagraph \
   --categories TextSpecial \
   --mask-categories Advertisement \
-  --output "../newspapers/segmentation/test/newseye-atr/" \
+  --output "../newspapers/DATA/osr/test/newseye-atr/" \
   '../DATA/NewsEye-ATR/*Validation*/*.xml'
 
 
@@ -209,7 +209,7 @@ node ./2coco.js \
   --categories TextParagraph \
   --categories TextSpecial \
   --mask-categories Advertisement \
-  --output "../newspapers/segmentation/train/newseye-onb/" \
+  --output "../newspapers/DATA/osr/train/newseye-onb/" \
   '../DATA/NewsEye-ONB/*Training*/*.xml'
 
 node ./2coco.js \
@@ -223,7 +223,7 @@ node ./2coco.js \
   --categories TextParagraph \
   --categories TextSpecial \
   --mask-categories Advertisement \
-  --output "../newspapers/segmentation/test/newseye-onb/" \
+  --output "../newspapers/DATA/osr/test/newseye-onb/" \
   '../DATA/NewsEye-ONB/*Validation*/*.xml'
 
 
@@ -240,5 +240,5 @@ node 2coco.js \
   --categories TextParagraph \
   --categories TextSpecial \
   --mask-categories Advertisement \
-  --output "../newspapers/segmentation/train/ocr-d-gt/" \
+  --output "../newspapers/DATA/osr/train/ocr-d-gt/" \
   '../DATA/ocr-d-groundtruth/*.ocrd/data/*mets.xml'

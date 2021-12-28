@@ -34,6 +34,7 @@ img.mask {
     background: white;
     padding: 8px;
     display: flex;
+    position: relative;
 }
 .toolbar span {
     flex: auto;
