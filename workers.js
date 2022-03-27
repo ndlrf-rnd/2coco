@@ -3,6 +3,7 @@ const cloneDeep = require('lodash.clonedeep');
 const os = require('os');
 
 const DEFAULT_JOBS = Math.max(2, parseInt(process.env.JOBS, 10) || (os.cpus().length - 1));
+const DEFAULT_BATCH = 8;
 const WORKER_SYNC = process.env.WORKER_SYNC || (process.env.NODE_ENV === 'test');
 
 const info = (...args) => process.stdout.write(`${args.map(v => `${v}`).join(' ')}\n`);
@@ -59,11 +60,12 @@ global.TASK_HANDLERS = []; // Single task handler
 global.TASK_HANDLER = null; // Curent task handler
 global.TASK_ID_SERIAL = 0;
 global.JOBS = DEFAULT_JOBS;
-
-const initWorker = (handlers = global.TASK_TYPE_HANDLERS, jobs = DEFAULT_JOBS) => {
+global.BATCH = DEFAULT_BATCH
+const initWorker = (handlers = global.TASK_TYPE_HANDLERS, jobs = DEFAULT_JOBS, batch = DEFAULT_BATCH) => {
   global.TASK_TYPE_HANDLERS = handlers;
   if (cluster.isMaster) {
     global.JOBS = ((typeof jobs !== 'number') || (jobs <= 0)) ? DEFAULT_JOBS : jobs;
+    global.BATCH = ((typeof batch !== 'number') || (jobs <= 0)) ? DEFAULT_BATCH : batch;
   } else if (cluster.isWorker) {
     process.on(
       'message',
@@ -105,7 +107,6 @@ const processQueue = () => {
     if ((!global.TASK_HANDLER) && (global.TASK_HANDLERS.length > 0)) {
       global.TASK_HANDLER = global.TASK_HANDLERS.pop();
       const { inputArr, task, ctx } = global.TASK_HANDLER;
-      const chunkSize = Math.ceil(inputArr.length / global.JOBS);
       // Round-robin distribute data items to process
       const workerData = [];
       for (let i = 0; i < inputArr.length; i += 1) {
@@ -116,6 +117,15 @@ const processQueue = () => {
           workerData[assignToWorkerId].push(inputArr[i]);
         }
       }
+
+      // const batchData = [];
+      // for (let i = 0; i < inputArr.length; i += 1) {
+      //   if ((i % global.BATCH) === 0) {
+      //     batchData.push([])
+      //   }
+      //   batchData[batchData.length - 1].push(inputArr[i])
+      // }
+
       const assignees = (inputArr.length >= global.WORKERS.length)
         ? global.WORKERS
         : global.WORKERS.slice(0, inputArr.length);

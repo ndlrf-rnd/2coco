@@ -165,8 +165,26 @@ const parseArgs = (args) => {
     '--lines-width', '-w',
     {
       help: 'Outlines and object COCO skeleton lines thickness in raw pixels',
-      default: 7,
+      default: 5,
       type: 'int',
+    },
+  );
+
+  parser.add_argument(
+    '--img-prefix', '-i',
+    {
+      help: 'Relative image path prefix',
+      default: '.',
+      type: 'str',
+    },
+  );
+  
+  parser.add_argument(
+    '--img-suffix', '-I',
+    {
+      help: 'Image path possible suffix to cut off',
+      default: '',
+      type: 'str',
     },
   );
   return parser.parse_args(args);

@@ -7,8 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 const cluster = require('cluster');
-
-const mkdirp = require('mkdirp');
+const crypto = require('crypto')
 const glob = require('glob');
 const sharp = require('sharp');
 const compact = require('lodash.compact');
@@ -56,7 +55,7 @@ const LOG_DIR = path.join(__dirname, 'logs');
 const DEFAULT_SHARP_PARAMS = { limitInputPixels: false };
 const DEFAULT_OPACITY = 1.0;
 
-mkdirp.sync(LOG_DIR);
+fs.mkdirSync(LOG_DIR, { recursive: true });
 
 const LOG_PATH = path.join(
   LOG_DIR,
@@ -90,6 +89,7 @@ const processImages = async (images, ctx, workerId) => {
   const { colorToMaskId } = ctx;
 
   const processImage = async (im, idx) => {
+    let error = null;
     const t1 = (new Date()).getTime();
 
     const imgAnnotations = (
@@ -101,22 +101,23 @@ const processImages = async (images, ctx, workerId) => {
     );
 
     if (imgAnnotations.length === 0) {
-      return null;
+      error = 'No annotations'; //coreturn null;
     }
 
     // const ext = path.extname(im.file_name || '').substr(1);
     const extension = ctx.output_format ? `.${ctx.output_format.toLocaleLowerCase()}` : DEFAULT_IMAGE_EXTENSION;
     const baseName = path.basename(im.file_name, path.extname(im.file_name));
-    const outputFileName = `${baseName}${extension}`;
-    let outputFilePath = path.join(ctx.imagesDir, outputFileName);
-
     if (fs.existsSync(im.file_name)) {
 
       // Get image metadata
       const image = sharp(im.file_name, DEFAULT_SHARP_PARAMS);
       const { density, format, space, channels, width, height } = await image.metadata();
-      if ((!width) || (!height) || (!fs.existsSync(im.file_name))) {
-        return null;
+      // if (!fs.existsSync(im.file_name)) {
+      //   error = 'Does not exists'
+      //
+      // }
+      if ((!width) || (!height)) {
+        error = 'Invalid width or height'
       }
       // TIFF have much lower chances to contain
       // processing host screen DPI in metadata defined accidentally
@@ -152,7 +153,14 @@ const processImages = async (images, ctx, workerId) => {
 
       const srcSize = fs.statSync(im.file_name).size;
       const inputPath = im.file_name;
-      im.file_name = path.relative(ctx.output, outputFilePath);
+
+      const hashStr = crypto.createHash('sha256').update(
+        fs.readFileSync(inputPath)
+      ).digest('hex').substr(0, 8);
+
+      const outputFileName = `${baseName}-${hashStr}${extension}`;
+      let outputFilePath = path.join(ctx.imagesDir, outputFileName);
+      im.file_name = outputFilePath // path.relative(ctx.output, outputFilePath);
 
       const maskOutputPath = path.join(
         ctx.masksDir,
@@ -161,7 +169,7 @@ const processImages = async (images, ctx, workerId) => {
           .slice(-1)[0]
           .replace(/\.([^.\/\\]+)$/u, `_GT.png`),
       );
-      mkdirp.sync(path.dirname(maskOutputPath));
+      fs.mkdirSync(path.dirname(maskOutputPath), { recursive: true });
 
       const textCategoryId = ctx.annotations.filter(({ name }) => name === CATEGORY_TEXT_LINE).id;
       const printSpaceCategoryId = ctx.annotations.filter(({ name }) => name === CATEGORY_PRINT_SPACE).id;
@@ -477,9 +485,9 @@ const processImages = async (images, ctx, workerId) => {
           },
         );
         // if (!ctx.no_gt_bg) {
-        //  await sharp(canvasBlock.toBuffer(), DEFAULT_SHARP_PARAMS).threshold(254).negate().png(pngParams).toFile(
-        //    maskOutputPath.replace(/_GT(\.[^.]+)$/u, `_GT${binMaskCanvases.length}$1`),
-        //  );
+        await sharp(canvasBlock.toBuffer(), DEFAULT_SHARP_PARAMS).threshold(254).negate().png(pngParams).toFile(
+          maskOutputPath.replace(/_GT(\.[^.]+)$/u, `_GT${0}$1`),
+        );
         //}
       }
       if (!ctx.no_masks) {
@@ -491,6 +499,8 @@ const processImages = async (images, ctx, workerId) => {
         log(` -[SKIP]-X due --no-images`);
       } else {
         try {
+
+
           if (fs.existsSync(outputFilePath)) {
             fs.unlinkSync(outputFilePath);
           }
@@ -529,14 +539,17 @@ const processImages = async (images, ctx, workerId) => {
               ),
             );
 
+
+
           await resizedImage.toFile(outputFilePath);
           if (!fs.existsSync(outputFilePath)) {
-            log(` ERROR: failed to convert\n`);
-            return null;
+            console.error(`ERROR: failed to convert\n`);
+            error = 'Failed';
           }
           dstSize = fs.statSync(outputFilePath).size;
         } catch (e) {
-          console.log(`Error during image conversion:\n${e.message}\n${e.stack}`);
+          error = `Error during image conversion:\n${e.message}\n${e.stack}`;
+          console.error(error);
         }
       }
 
@@ -584,7 +597,8 @@ const processImages = async (images, ctx, workerId) => {
       );
       return {
         ...im,
-        file_name: outputFilePath,
+        ...(error ? {error} : {}),
+        file_name: outputFileName,
       };
     }
   };
@@ -592,7 +606,7 @@ const processImages = async (images, ctx, workerId) => {
   return clone(
     (
       await cpMap(images, processImage)
-    ).filter(v => !!v),
+    ),
   );
 };
 
@@ -614,6 +628,18 @@ const processPagePath = async (p, jsonataExpression) => {
       file_name = alter;
     }
   }
+  // consple.log(Object.keys(res.annotations || {}))
+  const images = (Array.isArray(res.images || []) ? (res.images || []) : Object.values(res.images || {})).reduce(
+    (ima, imageKey) => ({
+      ...ima,
+      [file_name]: {
+        ...res.images[imageKey],
+        file_name,
+      },
+    }),
+    {},
+  );
+  // console.log('i', images);
   const annotations = Object.keys(res.annotations || {}).reduce(
     (a, k) => ({
       ...a,
@@ -627,16 +653,7 @@ const processPagePath = async (p, jsonataExpression) => {
     {},
   );
 
-  const images = (Array.isArray(res.images || []) ? (res.images || []) : Object.values(res.images || {})).reduce(
-    (ima, imageKey) => ({
-      ...ima,
-      [file_name]: {
-        ...res.images[imageKey],
-        file_name,
-      },
-    }),
-    {},
-  );
+
   const categories = res.categories || {};
   return {
     categories,
@@ -769,7 +786,7 @@ const processXmlPath = async (paths, { parentPath, cacheDirPath, categories }, w
           ].join(' ')
         }\n`,
       );
-      mkdirp.sync(path.dirname(tempFilePath));
+      fs.mkdirSync(path.dirname(tempFilePath), { recursive: true });
       fs.writeFileSync(tempFilePath, JSON.stringify(res, null, 2), 'utf-8');
       return res;
     },
@@ -796,7 +813,7 @@ const makeHtml = async (images, masksDir) => {
   };
 
   const staticDir = path.join(masksDir, 'static');
-  mkdirp.sync(staticDir);
+  fs.mkdirSync(staticDir, { recursive: true });
 
   const openSeaDragonConfJson = JSON.stringify(openSeaDragonConf, null, 2);
 
@@ -876,16 +893,22 @@ const makeCoco = async (input, conf) => {
       if (((id + 1) % REPORT_EVERY) === 0) {
         log(`[${padLeft(id + 1, Math.ceil(Math.log10(imagesCount)))}/${imagesCount}]\n`);
       }
-      const fileName = input.images[k].file_name;
+      let fileName = input.images[k].file_name;
+      if (conf.img_suffix) {
+        fileName = fileName.replace(conf.img_suffix, '.*');
+      }
       const baseName = path.basename(fileName);
-      const fileNamesPrec = uniq([
-        fileName,
-        // One level higher
-        path.join(path.dirname(fileName), '..', baseName),
-        // Check other input file paths
-        ...conf.inputPaths.filter(inputPath => (path.basename(inputPath) === baseName)),
-      ]);
-
+      const fileNamesPrec = glob.sync(
+        path.join(
+          path.dirname(path.resolve(fileName)),
+          ...(
+            conf.img_prefix && (conf.img_prefix != '.')
+              ? [conf.img_prefix.replace(/(^\/+|\/+$)/ug, '')]
+              : []
+          ),
+          path.basename(path.extname(fileName) ? fileName : `${fileName}.*`),
+        )
+      ).sort();
       let found = false;
       // Search for file
       for (let i = 0; i < fileNamesPrec.length; i += 1) {
@@ -900,6 +923,8 @@ const makeCoco = async (input, conf) => {
         }
       }
       if (!found) {
+
+        console.error('NOT FOUNDfileNamesPrec', fileName, fileNamesPrec )
         notFound[fileName] = [fileName];
       }
       return a;
@@ -946,10 +971,11 @@ const makeCoco = async (input, conf) => {
               : {}
           ),
         };
-      } else {
-        notFound[annotation.file_name] = notFound[annotation.file_name] || [];
-        notFound[annotation.file_name].push(annotationId);
       }
+      // else {
+      //   notFound[annotation.file_name] = notFound[annotation.file_name] || [];
+      //   notFound[annotation.file_name].push(annotationId);
+      // }
       return a;
     },
     {},
@@ -978,9 +1004,9 @@ const makeCoco = async (input, conf) => {
     {},
   );
   const imagesDir = conf.subdirs ? path.join(conf.output, 'images') : conf.output;
-  mkdirp.sync(imagesDir);
+  fs.mkdirSync(imagesDir, { recursive: true });
   const masksDir = conf.subdirs ? path.join(conf.output, 'masks') : conf.output;
-  mkdirp.sync(masksDir);
+  fs.mkdirSync(masksDir, { recursive: true });
 
   const categoriesFrequencies = result.annotations.reduce(
     (a, o) => {
@@ -1081,7 +1107,14 @@ const makeCoco = async (input, conf) => {
       categories: result.categories,
       colorToMaskId,
     },
-  )).filter(v => !!v);
+  ))
+  errorImages = result.images.reduce(
+    (acc, {id, error}) => (error ? acc : {...acc, id: true}),
+    {},
+  )
+  console.error('error', errorImages)
+  result.annotations = result.annotations.filter(a => errorImages[a.image_id] === 'undfined')
+  result.images = result.images.filter(v => !v.error);
 
   const jsonPath = path.join(conf.output, `coco.json`);
   log(`Serializing metadata to JSON and saving to:\n${jsonPath}\n`);
@@ -1094,11 +1127,11 @@ const makeCoco = async (input, conf) => {
   const resultHtml = await makeHtml(result.images, masksDir);
   log(`Saving HTML preview feed to ${htmlPath}`);
   const staticDstDir = path.join(path.dirname(htmlPath), 'static');
-  mkdirp.sync(staticDstDir);
+  fs.mkdirSync(staticDstDir, { recursive: true });
 
   const sdSrcDir = path.join(OPENSEADRAGON_BUILD_DIR, 'openseadragon');
   const sdDstDir = path.join(staticDstDir, 'openseadragon');
-  mkdirp.sync(sdDstDir);
+  fs.mkdirSync(sdDstDir, { recursive: true });
   fs.writeFileSync(htmlPath, resultHtml, 'utf-8');
   fs.copyFileSync(
     path.join(sdSrcDir, 'openseadragon.min.js'),
@@ -1107,7 +1140,7 @@ const makeCoco = async (input, conf) => {
 
   const sdImagesSrcDir = path.join(sdSrcDir, 'images');
   const sdImagesDstDir = path.join(sdDstDir, 'images');
-  mkdirp.sync(sdImagesDstDir);
+  fs.mkdirSync(sdImagesDstDir, { recursive: true });
   glob.sync(path.join(sdImagesSrcDir, '*.*')).forEach(
     (fp) => fs.copyFileSync(fp, path.join(sdImagesDstDir, path.basename(fp))),
   );
@@ -1165,7 +1198,7 @@ const run = async (conf) => {
   );
   log(`Output path: ${output}`);
   // console.error('INPUT PATHS', inputPaths)
-  mkdirp.sync(output);
+  fs.mkdirSync(output, { recursive: true });
 
   const categories = (conf.mask_categories || []).reduce(
     (a, k) => ({ ...a, [k]: { ...CATEGORIES[k], mask: true } }),
