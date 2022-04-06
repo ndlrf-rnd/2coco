@@ -139,7 +139,8 @@ const bbox2seg = (bbox) => ([
   bbox[1],
 ]);
 
-const hex2rgba = (hexa, alpha = 1.0) => {
+
+const hex2rgbaInt = (hexa, alpha = 1.0) => {
   hexa = `${hexa || ''}`.replace(/^#?/g, '#');
   if ((hexa.length < 4) || (hexa.length > 9)) {
     return null;
@@ -155,11 +156,17 @@ const hex2rgba = (hexa, alpha = 1.0) => {
   if (hexa.length > 7) {
     a = parseInt(hexa.slice(7, 9), 16) / 255;
   }
+  return [r, g, b, a];
+};
+const hex2rgba = (hexa, alpha = 1.0) => {
+  const [r, g, b, a] = typeof hexa === 'string' ? hex2rgbaInt(hexa, alpha) : hexa;
   return `rgba(${r}, ${g}, ${b}, ${a})`;
 };
 
+
 module.exports = {
   hex2rgba,
+  hex2rgbaInt,
   forceArray,
   prettyBytes,
   padLeft,

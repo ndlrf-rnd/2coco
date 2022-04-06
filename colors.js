@@ -306,6 +306,7 @@ const COLORS = {
   'darkIcons': { 'active': 'rgba(0, 0, 0, 0.54)', 'inactive': 'rgba(0, 0, 0, 0.38)' },
   'lightIcons': { 'active': 'rgba(255, 255, 255, 1)', 'inactive': 'rgba(255, 255, 255, 0.5)' },
   'white': '#ffffff',
+  'gray': '#888888',
   'black': '#000000',
 };
 const KEYS_ORDER = ['500', '300', '700', '100', '900'];
@@ -360,13 +361,13 @@ const CLASS_COLORS = {
   TextParagraph: '#433981', // 67, 57, 129
   TextSpecial: '#48668C', // 72, 102, 140
   ChartRegion: '#800080',
-  GraphicRegion: '#008000',
+  GraphicRegion: '#F5E73D', // 245, 231, 61
   ImageRegion: '#AAD652',
   LineDrawingRegion: '#B8860B',
   MathsRegion: '#00BFFF',
   NoiseRegion: '#FF0000',
   // SeparatorRegion: '#FF00FF',
-  SeparatorRegion: '#F5E73D', // 245, 231, 61
+  SeparatorRegion: '#008000',
   TableRegion: '#00CED1', // '#8B4513', // 170, 214, 82
   AdvertRegion: '#4682B4',
   ChemRegion: '#FF8C00',

@@ -1,16 +1,25 @@
 const { COLORS, CLASS_COLORS } = require('./colors');
 
-const CATEGORY_TEXT_PARAGRAPH = 'TextParagraph';
-const CATEGORY_TEXT_SPECIAL = 'TextSpecial';
-const CATEGORY_TABLE = 'Table';
-const CATEGORY_FIGURE = 'Figure';
-const CATEGORY_SEPARATOR = 'Separator';
-const CATEGORY_BORDER = 'Border';
-const CATEGORY_PRINT_SPACE = 'PrintSpace';
-const CATEGORY_TEXT_LINE = 'TextLine';
-const CATEGORY_WORD = 'Word';
-const CATEGORY_GLYPH = 'Glyph';
-const CATEGORY_ADVERTISEMENT = 'Advertisement';
+const CATEGORY_TEXT_PARAGRAPH = 'text';
+const CATEGORY_MIXED = 'mixed';
+const CATEGORY_TABLE = 'table';
+const CATEGORY_GRAPHICS = 'graphics';
+const CATEGORY_BORDER = 'border';
+const CATEGORY_PRINT_SPACE = 'print_space';
+const CATEGORY_TEXT_LINE = 'text_line';
+const CATEGORY_WORD = 'word';
+const CATEGORY_GLYPH = 'glyph';
+const CATEGORY_ADVERTISEMENT = 'advertisement';
+// const CATEGORY_TEXT_PARAGRAPH = 'TextParagraph';
+// const CATEGORY_MIXED = 'TextSpecial';
+// const CATEGORY_TABLE = 'Table';
+// const CATEGORY_GRAPHICS = 'Graphics';
+// const CATEGORY_BORDER = 'Border';
+// const CATEGORY_PRINT_SPACE = 'PrintSpace';
+// const CATEGORY_TEXT_LINE = 'TextLine';
+// const CATEGORY_WORD = 'Word';
+// const CATEGORY_GLYPH = 'Glyph';
+// const CATEGORY_ADVERTISEMENT = 'Advertisement';
 
 const CATEGORIES = {
   [CATEGORY_PRINT_SPACE]: {
@@ -29,61 +38,37 @@ const CATEGORIES = {
     name: CATEGORY_TEXT_PARAGRAPH,
     supercategory: CATEGORY_TEXT_PARAGRAPH,
     id: 10,
-    // color: 'transparent',
     color: CLASS_COLORS.TextParagraph,
-    // skeleton_color: CLASS_COLORS.TextRegion,
   },
-  [CATEGORY_TEXT_SPECIAL]: {
-    name: CATEGORY_TEXT_SPECIAL,
-    supercategory: CATEGORY_TEXT_SPECIAL,
+  [CATEGORY_MIXED]: {
+    name: CATEGORY_MIXED,
+    supercategory: CATEGORY_MIXED,
     id: 11,
-    // color: 'transparent',
     color: CLASS_COLORS.TextSpecial,
-    // skeleton_color: CLASS_COLORS.TextRegion,
   },
   [CATEGORY_TEXT_LINE]: {
     name: CATEGORY_TEXT_LINE,
     supercategory: CATEGORY_TEXT_LINE,
-    // keypoints: ['baseline_left', 'baseline_right'],
-    // skeleton: [[1, 2]],
     id: 12,
-    // color: COLORS.green['400'], // NO FILL
     skeleton_color: CLASS_COLORS.BaseLine,
     border_v_color: CLASS_COLORS.TextLine,
-    // border_h_color: COLORS.teal['100'],
   },
   [CATEGORY_WORD]: {
     name: CATEGORY_WORD,
     supercategory: CATEGORY_WORD,
-    // keypoints: ['baseline_left', 'baseline_right'],
-    // skeleton: [[1, 2]],
     id: 13,
-    // color: COLORS.indigo['500'], // NO FILL
-    // skeleton_color: CLASS_COLORS.Word,//COLORS.indigo['700'],
     border_color: COLORS.Word,
   },
   [CATEGORY_GLYPH]: {
     name: CATEGORY_GLYPH,
     supercategory: CATEGORY_GLYPH,
-    // keypoints: ['baseline_left', 'baseline_right'],
-    // skeleton: [[1, 2]],
     id: 14,
-    // color: COLORS.blue['500'], // NO FILL
     border_color: CLASS_COLORS.Glyph,//COLORS.blue['700'],
-    // border_v_color: COLORS.blue['300'],
-    // border_h_color: COLORS.blue['100'],
   },
-  [CATEGORY_SEPARATOR]: {
-    name: CATEGORY_SEPARATOR,
-    supercategory: CATEGORY_SEPARATOR,
+  [CATEGORY_GRAPHICS]: {
+    name: CATEGORY_GRAPHICS,
+    supercategory: CATEGORY_GRAPHICS,
     id: 20,
-    color: CLASS_COLORS.SeparatorRegion,
-    // skeleton_color: 'transparent',
-  },
-    [CATEGORY_FIGURE]: {
-    name: CATEGORY_FIGURE,
-    supercategory: CATEGORY_FIGURE,
-    id: 21,
     color: CLASS_COLORS.ImageRegion,
   },
   [CATEGORY_TABLE]: {
@@ -95,13 +80,8 @@ const CATEGORIES = {
   [CATEGORY_ADVERTISEMENT]: {
     name: CATEGORY_ADVERTISEMENT,
     supercategory: CATEGORY_ADVERTISEMENT,
-    // keypoints: ['baseline_left', 'baseline_right'],
-    // skeleton: [[1, 2]],
-    id: 999,
+    id: 40,
     color: COLORS.yellow['500'], // NO FILL
-    // border_color: CLASS_COLORS.AdvertRegion,//COLORS.blue['700'],
-    // border_v_color: COLORS.blue['300'],
-    // border_h_color: COLORS.blue['100'],
   },
 };
 
@@ -119,22 +99,22 @@ const CATEGORIES_MAPPING = {
   Text: CATEGORY_TEXT_PARAGRAPH,
   // HEADING: CATEGORY_TEXT_PARAGRAPH,
   OVERLINE: CATEGORY_TEXT_PARAGRAPH,
-  GraphicalElement: CATEGORY_SEPARATOR,
+  GraphicalElement: CATEGORY_GRAPHICS,
   // PUBLISHING_STMT: CATEGORY_TEXT_PARAGRAPH,
   // HEADLINE: CATEGORY_TEXT_PARAGRAPH,
   // TITLE_SECTION: CATEGORY_TEXT_PARAGRAPH,
   TextRegion: {
     paragraph: CATEGORY_TEXT_PARAGRAPH,
-    heading: CATEGORY_TEXT_SPECIAL,
-    caption: CATEGORY_TEXT_SPECIAL,
-    header: CATEGORY_TEXT_SPECIAL,
-    footer: CATEGORY_TEXT_SPECIAL,
-    'page-number': CATEGORY_TEXT_SPECIAL,
-    'drop-capital': CATEGORY_HIDDEN, // CATEGORY_TEXT_PARAGRAPH
-    credit: CATEGORY_TEXT_SPECIAL,
+    heading: CATEGORY_MIXED,
+    caption: CATEGORY_MIXED,
+    header: CATEGORY_MIXED,
+    footer: CATEGORY_MIXED,
+    'page-number': CATEGORY_MIXED,
+    'drop-capital': CATEGORY_MIXED, // CATEGORY_TEXT_PARAGRAPH
+    credit: CATEGORY_MIXED,
     floating: CATEGORY_TEXT_PARAGRAPH,
-    'signature-mark': CATEGORY_TEXT_SPECIAL,
-    'catch-word': CATEGORY_TEXT_SPECIAL,
+    'signature-mark': CATEGORY_MIXED,
+    'catch-word': CATEGORY_MIXED,
     marginalia: CATEGORY_TEXT_PARAGRAPH,
     footnote: CATEGORY_TEXT_PARAGRAPH,
     'footnote-continued': CATEGORY_TEXT_PARAGRAPH,
@@ -148,50 +128,50 @@ const CATEGORIES_MAPPING = {
   Paragraph: CATEGORY_TEXT_PARAGRAPH,
   TableRegion: CATEGORY_TABLE,
   GraphicRegion: {
-    logo: CATEGORY_FIGURE,
-    letterhead: CATEGORY_FIGURE,
-    decoration: CATEGORY_SEPARATOR,
-    frame: CATEGORY_SEPARATOR,
+    logo: CATEGORY_GRAPHICS,
+    letterhead: CATEGORY_GRAPHICS,
+    decoration: CATEGORY_GRAPHICS,
+    frame: CATEGORY_GRAPHICS,
     'handwritten-annotation': CATEGORY_TEXT_PARAGRAPH,
-    stamp: CATEGORY_FIGURE,
-    signature: CATEGORY_FIGURE,
-    barcode: CATEGORY_FIGURE,
-    'paper-grow': CATEGORY_FIGURE,
-    'punch-hole': CATEGORY_FIGURE,
-    other: CATEGORY_FIGURE,
+    stamp: CATEGORY_GRAPHICS,
+    signature: CATEGORY_GRAPHICS,
+    barcode: CATEGORY_GRAPHICS,
+    'paper-grow': CATEGORY_GRAPHICS,
+    'punch-hole': CATEGORY_GRAPHICS,
+    other: CATEGORY_GRAPHICS,
   },
-  ImageRegion: CATEGORY_FIGURE,
+  ImageRegion: CATEGORY_GRAPHICS,
   AdvertRegion: CATEGORY_ADVERTISEMENT,
 
-  SeparatorRegion: CATEGORY_SEPARATOR,
+  SeparatorRegion: CATEGORY_GRAPHICS,
 
-  MusicRegion: CATEGORY_FIGURE,
-  ChemRegion: CATEGORY_FIGURE,
-  MathsRegion: CATEGORY_FIGURE,
+  MusicRegion: CATEGORY_GRAPHICS,
+  ChemRegion: CATEGORY_GRAPHICS,
+  MathsRegion: CATEGORY_GRAPHICS,
 
   ChartRegion: {
-    bar: CATEGORY_FIGURE,
-    line: CATEGORY_FIGURE,
-    pie: CATEGORY_FIGURE,
-    scatter: CATEGORY_FIGURE,
-    surface: CATEGORY_FIGURE,
-    other: CATEGORY_FIGURE,
+    bar: CATEGORY_GRAPHICS,
+    line: CATEGORY_GRAPHICS,
+    pie: CATEGORY_GRAPHICS,
+    scatter: CATEGORY_GRAPHICS,
+    surface: CATEGORY_GRAPHICS,
+    other: CATEGORY_GRAPHICS,
   },
-  LineDrawingRegion: CATEGORY_FIGURE,
+  LineDrawingRegion: CATEGORY_GRAPHICS,
 
   // METS
 
-  HEADING: CATEGORY_TEXT_SPECIAL, // # group
-  AUTHOR: CATEGORY_TEXT_SPECIAL,
-  TITLE: CATEGORY_TEXT_SPECIAL,
-  TITLE_SECTION: CATEGORY_TEXT_SPECIAL,  // group
+  HEADING: CATEGORY_MIXED, // # group
+  AUTHOR: CATEGORY_MIXED,
+  TITLE: CATEGORY_MIXED,
+  TITLE_SECTION: CATEGORY_MIXED,  // group
 
   PUBLISHING_STMT: CATEGORY_TEXT_PARAGRAPH,
-  HEADLINE: CATEGORY_TEXT_SPECIAL,
-  SUBHEADLINE: CATEGORY_TEXT_SPECIAL,
-  MOTTO: CATEGORY_TEXT_SPECIAL,
+  HEADLINE: CATEGORY_MIXED,
+  SUBHEADLINE: CATEGORY_MIXED,
+  MOTTO: CATEGORY_MIXED,
 
-  IMAGE: CATEGORY_FIGURE,
+  IMAGE: CATEGORY_GRAPHICS,
 
   TABLE: CATEGORY_TABLE,  // group
   Table: CATEGORY_TABLE,  // group
@@ -262,15 +242,15 @@ const CATEGORIES_MAPPING = {
   String: CATEGORY_TEXT_PARAGRAPH,
   TextBlock: CATEGORY_TEXT_PARAGRAPH,
   Tables: CATEGORY_TABLE,
-  // GraphicalElement: CATEGORY_FIGURE,
-  Illustration: CATEGORY_FIGURE,
-  // SeparatorRegion: CATEGORY_SEPARATOR,
+  // GraphicalElement: CATEGORY_GRAPHICS,
+  Illustration: CATEGORY_GRAPHICS,
+  // SeparatorRegion: CATEGORY_GRAPHICS,
 
-  // MusicRegion: CATEGORY_FIGURE,
-  // ChemRegion: CATEGORY_FIGURE,
-  // MathsRegion: CATEGORY_FIGURE,
-  // ChartRegion: CATEGORY_FIGURE,
-  // LineDrawingRegion: CATEGORY_FIGURE
+  // MusicRegion: CATEGORY_GRAPHICS,
+  // ChemRegion: CATEGORY_GRAPHICS,
+  // MathsRegion: CATEGORY_GRAPHICS,
+  // ChartRegion: CATEGORY_GRAPHICS,
+  // LineDrawingRegion: CATEGORY_GRAPHICS
 
 };
 

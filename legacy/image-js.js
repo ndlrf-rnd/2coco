@@ -9,6 +9,7 @@ const path = require('path');
 const cluster = require('cluster');
 const crypto = require('crypto');
 
+const { Image } = require('image-js');
 const glob = require('glob');
 const sharp = require('sharp');
 const compact = require('lodash.compact');
@@ -21,7 +22,7 @@ const { CATEGORIES_MAPPING } = require('./categories');
 const { CATEGORY_PRINT_SPACE } = require('./categories');
 const { CATEGORY_TEXT_LINE } = require('./categories');
 const { xml2js } = require('xml-js');
-const { Canvas } = require('canvas');
+const { Canvas, loadImage, createCanvas, createImageData } = require('canvas');
 
 const {
   bbox2seg,
@@ -161,6 +162,40 @@ const getImSeg = (
       break;
     }
   }
+  const bbox = [
+    borders.reduce((a, o) => (o === null) ? a : Math.min(a, o[0]), mask.width),
+    top,
+    borders.reduce((a, o) => (o === null) ? a : Math.max(a, o[1]), 0),
+    bottom,
+  ];
+  // const img = await loadImage(inputPath);
+  // console.log('th', th, 'img', mask.width, mask.height, 'bbox', bbox);
+  //mask.data.reduce((a, o) => a + (o / mask.data.length), 0)
+  // const canvasImg = createCanvas(img.width, img.height);
+  // const canvasImgCtx = canvasImg.getContext('2d', { alpha: false, pixelFormat: 'RGBA32' });
+  // canvasImgCtx.drawImage(img, 0, 0, img.width, img.height);
+
+  // const id = canvasImgCtx.getImageData(x, y, w, h);
+  //
+  // const bpp = Math.round(id.data.length / (w * h));
+  // console.log('bpp', bpp, 'img', id.data.length);
+  // let bw = [];
+  // let mean = 0;
+  // for (let i = 0; i < w * h; i += 1) {
+  //   let intensity = 0;
+  //   for (let p = 0; p < bpp; p += 1) {
+  //     if (p < 3) {
+  //       intensity += id.data[i * bpp + p];
+  //     }
+  //   }
+  //   intensity = Math.round(intensity / 3);
+  //   mean += (intensity / (w * h));
+  //   bw.push(intensity);
+  // }
+  // // const imData = createImageData(Uint8ClampedArray.from(bw), chunkWidth, h)
+  //
+  // bw = bw.map(v => (v >= mean) ? 1 : 0);
+  // console.log('imData', bw, 'mean', mean);
   return mask;
 };
 
@@ -212,18 +247,18 @@ const processImages = async (images, ctx, workerId) => {
         im.width = width;
         im.height = height;
       }
-        // let bw;
-    //   try {
+      // let bw;
+      //   try {
 
 
-    //   bw = (await Image.load(await image.toBuffer())).grey({
-    //     algorithm: 'lightness',
-    //     // algorithm: 'luma709',
-    //   });
-    // } catch (e) {
-    //   error = `ERROR: ${im.file_name} ${e.message} ${e.stack}`;
-    //   throw Error(error)
-    // }
+      //   bw = (await Image.load(await image.toBuffer())).grey({
+      //     algorithm: 'lightness',
+      //     // algorithm: 'luma709',
+      //   });
+      // } catch (e) {
+      //   error = `ERROR: ${im.file_name} ${e.message} ${e.stack}`;
+      //   throw Error(error)
+      // }
       //
       // if (!ctx.no_dzi) {
       //   await sharp(im.file_name)
