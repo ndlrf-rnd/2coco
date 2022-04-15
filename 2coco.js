@@ -22,6 +22,7 @@ const { CATEGORY_PRINT_SPACE } = require('./categories');
 const { CATEGORY_TEXT_LINE } = require('./categories');
 const { xml2js } = require('xml-js');
 const { Canvas } = require('canvas');
+const { makeHtmlPlain } = require('./html-index');
 
 const {
   bbox2seg,
@@ -43,7 +44,6 @@ const { initWorker, executeParallel } = require('./workers');
  * @const
  */
 // const TEMP_DIR_PATH = path.resolve('./.cache');
-const OPENSEADRAGON_BUILD_DIR = path.join(__dirname, 'node_modules', 'openseadragon', 'build');
 const DZI_DEFAULT_TILE_SIZE = 512;
 const DEFAULT_IMAGE_EXTENSION = '.png';
 const DEFAULT_DPI = 300;
@@ -56,6 +56,8 @@ const ALTO_TO_COCO_JSONATA_PATH = path.join(__dirname, 'mappings/alto-to-coco.js
 const LOG_DIR = path.join(__dirname, 'logs');
 const DEFAULT_SHARP_PARAMS = { limitInputPixels: false };
 const DEFAULT_OPACITY = 1.0;
+
+const DEFAULT_THUMB_MAX_SIZE = 256;
 
 fs.mkdirSync(LOG_DIR, { recursive: true });
 
@@ -72,6 +74,22 @@ const LOG_PATH = path.join(
 const log = (message) => {
   process.stderr.write(message);
   fs.appendFileSync(LOG_PATH, message.replace(/([\n\r]+)/uig, `\$1[${cluster.isWorker ? 'worker' : 'master'}:${process.pid}] `), 'utf-8');
+};
+
+const saveImg = async (im, p, thumbSize = DEFAULT_THUMB_MAX_SIZE) => {
+  const thumbPath = path.join(...(p.split(path.sep).slice(0, -1)), 'thumb', p.split(path.sep).slice(-1)[0]);
+  const thumbsDir = path.dirname(thumbPath);
+  if (!fs.existsSync(thumbsDir)) {
+    fs.mkdirSync(thumbsDir, { recursive: true });
+  }
+  const { width, height } = await im.metadata();
+  const imClone = im.clone();
+  await imClone.toFile(p);
+  await imClone.resize(
+    Math.round(width * (thumbSize / (Math.max(width, height)))),
+    Math.round(height * (thumbSize / (Math.max(width, height)))),
+  ).toFile(thumbPath);
+  return thumbPath;
 };
 
 /**
@@ -190,10 +208,7 @@ const processImages = async (images, ctx, workerId) => {
       // Get image metadata
       const image = sharp(im.file_name, DEFAULT_SHARP_PARAMS);
       const { density, format, space, channels, width, height } = await image.metadata();
-      // if (!fs.existsSync(im.file_name)) {
-      //   error = 'Does not exists'
-      //
-      // }
+
       if ((!width) || (!height)) {
         error = 'Invalid width or height';
       }
@@ -212,34 +227,6 @@ const processImages = async (images, ctx, workerId) => {
         im.width = width;
         im.height = height;
       }
-        // let bw;
-    //   try {
-
-
-    //   bw = (await Image.load(await image.toBuffer())).grey({
-    //     algorithm: 'lightness',
-    //     // algorithm: 'luma709',
-    //   });
-    // } catch (e) {
-    //   error = `ERROR: ${im.file_name} ${e.message} ${e.stack}`;
-    //   throw Error(error)
-    // }
-      //
-      // if (!ctx.no_dzi) {
-      //   await sharp(im.file_name)
-      //     .resize(im.width, im.height)
-      //     .tile({
-      //       size: DZI_DEFAULT_TILE_SIZE,
-      //       overlap: 0,
-      //       angle: 0,
-      //       container: 'zip', // container, with value fs (filesystem) or zip (compressed file).
-      //       layout: 'dz',
-      //       center: false,
-      //       skipBlanks: -1,
-      //     })
-      //     .toFile(outputPath + '.dz');
-      // }
-
       const srcSize = fs.statSync(im.file_name).size;
       const inputPath = im.file_name;
 
@@ -256,8 +243,9 @@ const processImages = async (images, ctx, workerId) => {
         im.file_name
           .split('/')
           .slice(-1)[0]
-          .replace(/\.([^.\/\\]+)$/u, `_GT.png`),
+          .replace(/\.([^.\/\\]+)$/u, `.png`),
       );
+
       fs.mkdirSync(path.dirname(maskOutputPath), { recursive: true });
 
       const textCategoryId = ctx.annotations.filter(({ name }) => name === CATEGORY_TEXT_LINE).id;
@@ -313,7 +301,6 @@ const processImages = async (images, ctx, workerId) => {
         bmctx.lineWidth = ctx.lines_width;
         bmctx.strokeStyle = COLORS.black;
         binMaskCtxes.push(bmctx);
-
       }
       // console.error('binMaskCtxes', binMaskCtxes);
       // console.log('ctx.categories', ctx.categories)
@@ -363,15 +350,15 @@ const processImages = async (images, ctx, workerId) => {
                 const colors = forceArray(annCat.color);
                 const meanColor = hex2rgba(
                   colors.reduce(
-                    (acc,obj) => hex2rgbaInt(obj).map(
-                      (c, idx)=>(
+                    (acc, obj) => hex2rgbaInt(obj).map(
+                      (c, idx) => (
                         acc[idx] + (c / colors.length)
-                      )
+                      ),
                     ),
                     [0, 0, 0, 0],
-                  ).slice(0, 3).map(v=>Math.ceil(v)).concat([DEFAULT_OPACITY]),
+                  ).slice(0, 3).map(v => Math.ceil(v)).concat([DEFAULT_OPACITY]),
                   DEFAULT_OPACITY,
-                )
+                );
                 forceArray(annCat.color).forEach(
                   color => {
                     const binMaskCtx = binMaskCtxes[colorToMaskId[color].maskId];
@@ -407,14 +394,14 @@ const processImages = async (images, ctx, workerId) => {
                     if (binMaskCtx) {
                       binMaskCtx.closePath();
                       binMaskCtx.fill();
-                      binMaskCtx.stroke()
+                      binMaskCtx.stroke();
                     }
                     if (!annCat.mask) {
                       canvasBlockCtx.closePath();
                       canvasBlockCtx.fill();
                       canvasBlockCtx.stroke();
                     }
-                  }
+                  },
                 );
               }
               // Edges
@@ -583,26 +570,30 @@ const processImages = async (images, ctx, workerId) => {
       );
       const pngParams = { resolveWithObject: true, force: true, compressionLevel: 4, progressive: true };
       if (!ctx.no_gt) {
-        let gtIdx = 1; // Zero is reserved for potential background mask
+        // let gtIdx = 1; // Zero is reserved for potential background mask
         await cpMap(
           binMaskCanvases,
           async (binMaskCanvas, idx) => {
-            const mask = Object.values(colorToMaskId).filter(
-              ({ maskId }) => maskId === idx,
-            )[0].mask;
-            if (!mask) {
-              const fn = maskOutputPath.replace(/_GT(\.[^.]+)$/u, `_GT${gtIdx}$1`);
-              await sharp(binMaskCanvas.toBuffer(), DEFAULT_SHARP_PARAMS).png(pngParams).toFile(fn);
-              gtIdx += 1;
+            const cat = Object.values(colorToMaskId).filter(({ maskId }) => maskId === idx)[0];
+            if (!cat.mask) {
+              const fn = maskOutputPath.replace(/(\.[^.]+)$/u, `-${cat.class}$1`);
+              await saveImg(sharp(binMaskCanvas.toBuffer(), DEFAULT_SHARP_PARAMS).png(pngParams), fn);
             }
+            // gtIdx += 1;
           },
         );
-        await sharp(canvasBlock.toBuffer(), DEFAULT_SHARP_PARAMS).threshold(254).negate().png(pngParams).toFile(
-          maskOutputPath.replace(/_GT(\.[^.]+)$/u, `_GT${0}$1`),
+        await saveImg(
+          sharp(canvasBlock.toBuffer(), DEFAULT_SHARP_PARAMS).threshold(254).negate().png(pngParams),
+          maskOutputPath.replace(/(\.[^.]+)$/u, `-${'background'}$1`),
         );
       }
+
       if (!ctx.no_masks) {
-        await sharp(canvasBlock.toBuffer(), DEFAULT_SHARP_PARAMS).png(pngParams).toFile(maskOutputPath);
+        im.mask_file_name = maskOutputPath;
+        im.mask_thumb_file_name = await saveImg(
+          sharp(canvasBlock.toBuffer(), DEFAULT_SHARP_PARAMS).png(pngParams),
+          maskOutputPath,
+        );
       }
       let dstSize = 0;
 
@@ -639,17 +630,17 @@ const processImages = async (images, ctx, workerId) => {
             im.width,
             im.height,
           );
-          if (maskImages.length > 0)
-            resizedImage = resizedImage.composite(
-              await cpMap(
-                maskImages,
-                async categoriesMask => ({
-                  input: await categoriesMask.toBuffer(),
-                }),
-              ),
-            );
+          // if (maskImages.length > 0)
+          //   resizedImage = resizedImage.composite(
+          //     await cpMap(
+          //       maskImages,
+          //       async categoriesMask => ({
+          //         input: await categoriesMask.toBuffer(),
+          //       }),
+          //     ),
+          //   );
 
-          await resizedImage.toFile(outputFilePath);
+          im.thumb_file_name = await saveImg(resizedImage, outputFilePath);
           if (!fs.existsSync(outputFilePath)) {
             console.error(`ERROR: failed to convert\n`);
             error = 'Failed';
@@ -900,50 +891,6 @@ const processXmlPath = async (paths, { parentPath, cacheDirPath, categories }, w
   ),
 );
 
-const makeHtml = async (images, masksDir) => {
-  const openSeaDragonConf = {
-    tileSources: images.map(
-      ({
-          file_name,
-          id,
-          width,
-          height,
-        },
-      ) => ({
-        type: 'image',
-        title: id,
-        url: path.basename(file_name),
-        width: width,
-        height: height,
-      }),
-    ),
-  };
-
-  const staticDir = path.join(masksDir, 'static');
-  fs.mkdirSync(staticDir, { recursive: true });
-
-  const openSeaDragonConfJson = JSON.stringify(openSeaDragonConf, null, 2);
-
-  return `<!DOCTYPE HTML>
-<html lang="ru-RU">
-<head>
-
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>COCO dataset masks preview (${masksDir})</title>
-    <link rel="stylesheet" href="./static/style.css">
-    <style>
-    </style>
-    <body>
-    <script type="text/javascript">
-        window.CONFIG=${JSON.stringify(openSeaDragonConf, null, 2)}
-    </script>
-    <script src="static/openseadragon/openseadragon.min.js"></script>
-    <script type="text/javascript" src="static/index.js"/></script>
- </body>
-</html>`;
-};
-
 initWorker({
   processImages,
   processXmlPath,
@@ -1134,25 +1081,44 @@ const makeCoco = async (input, conf) => {
       ),
     ]),
   );
-
   const colorToMaskId = sortBy(
     Object.values(conf.categories),
     ['id'],
   ).reduce(
     (
       acc,
-      { id, color, border_color, border_h_color, border_v_color, skeleton_color, mask, name },
+      {
+        id,
+        color,
+        border_color,
+        border_class,
+        skeleton_color,
+        skeleton_class,
+        border_h_color,
+        border_h_class,
+        border_v_color,
+        border_v_class,
+        mask,
+        name,
+      },
     ) => {
       if ((!conf.no_fill) && color) {
-        forceArray(color).forEach(c=>{
-          acc[c] = acc[c] || { maskId: Object.keys(acc).length, categoryId: id, mask, name: `${name}` };
-        })
+        forceArray(color).forEach(c => {
+          acc[c] = acc[c] || {
+            maskId: Object.keys(acc).length,
+            categoryId: id,
+            mask,
+            name: `${name}`,
+            class: `${name}`,
+          };
+        });
       }
       if ((!conf.no_skeleton) && skeleton_color) {
         acc[skeleton_color] = acc[skeleton_color] || {
           maskId: Object.keys(acc).length,
           categoryId: id,
           mask,
+          class: `${skeleton_class || name}`,
           name: `${name}-skeleton`,
         };
       }
@@ -1162,6 +1128,7 @@ const makeCoco = async (input, conf) => {
             maskId: Object.keys(acc).length,
             categoryId: id,
             mask,
+            class: `${border_class || name}`,
             name: `${name}-border`,
           };
         }
@@ -1170,6 +1137,7 @@ const makeCoco = async (input, conf) => {
             maskId: Object.keys(acc).length,
             categoryId: id,
             mask,
+            class: `${border_h_class || name}`,
             name: `${name}-border-horizontal`,
           };
         }
@@ -1178,6 +1146,7 @@ const makeCoco = async (input, conf) => {
             maskId: Object.keys(acc).length,
             categoryId: id,
             mask,
+            class: `${border_v_class || name}`,
             name: `${name}-border-vertical`,
           };
         }
@@ -1217,7 +1186,7 @@ const makeCoco = async (input, conf) => {
       colorToMaskId,
     },
   ));
-  errorImages = result.images.filter(i=>!!i).reduce(
+  errorImages = result.images.filter(i => !!i).reduce(
     (acc, { id, error }) => (error ? acc : { ...acc, id: true }),
     {},
   );
@@ -1231,39 +1200,8 @@ const makeCoco = async (input, conf) => {
   const jsonSize = fs.statSync(jsonPath).size;
   log(`Done, ${prettyBytes(jsonSize)} (${jsonSize}) saved\n`);
 
-  const htmlPath = path.join(conf.output, `index.html`);
-  log(`Saving HTML masks preview to:\n${htmlPath}\n`);
-  const resultHtml = await makeHtml(result.images, masksDir);
-  log(`Saving HTML preview feed to ${htmlPath}`);
-  const staticDstDir = path.join(path.dirname(htmlPath), 'static');
-  fs.mkdirSync(staticDstDir, { recursive: true });
+  const resultHtml = await makeHtmlPlain(result.images, masksDir, conf.output);
 
-  const sdSrcDir = path.join(OPENSEADRAGON_BUILD_DIR, 'openseadragon');
-  const sdDstDir = path.join(staticDstDir, 'openseadragon');
-  fs.mkdirSync(sdDstDir, { recursive: true });
-  fs.writeFileSync(htmlPath, resultHtml, 'utf-8');
-  fs.copyFileSync(
-    path.join(sdSrcDir, 'openseadragon.min.js'),
-    path.join(sdDstDir, 'openseadragon.min.js'),
-  );
-
-  const sdImagesSrcDir = path.join(sdSrcDir, 'images');
-  const sdImagesDstDir = path.join(sdDstDir, 'images');
-  fs.mkdirSync(sdImagesDstDir, { recursive: true });
-  glob.sync(path.join(sdImagesSrcDir, '*.*')).forEach(
-    (fp) => fs.copyFileSync(fp, path.join(sdImagesDstDir, path.basename(fp))),
-  );
-
-  // Copy common assets
-  fs.copyFileSync(
-    path.join(__dirname, 'templates', 'style.css'),
-    path.join(staticDstDir, 'style.css'),
-  );
-  // const scriptsDstDir = path.join(staticDstDir, 'scripts');
-  fs.copyFileSync(
-    path.join(__dirname, 'templates', 'index.js'),
-    path.join(staticDstDir, 'index.js'),
-  );
   log(
     ['',
       `Categories (${result.categories.length}): ${JSON.stringify(CATEGORIES)}`,

@@ -51,7 +51,9 @@ const CATEGORIES = {
     supercategory: CATEGORY_TEXT_LINE,
     id: 12,
     skeleton_color: CLASS_COLORS.BaseLine,
+    skeleton_class: 'baseline',
     border_v_color: CLASS_COLORS.TextLine,
+    border_v_class : 'tabstop',
   },
   [CATEGORY_WORD]: {
     name: CATEGORY_WORD,

@@ -1,7 +1,7 @@
 {
   "name": "@ndlrf/2coco",
   "description": "Converts METS/ALTO/Page.XML datasets to COCO dataset format",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "license": "Apache-2.0",
   "tags": [
     "COCO",
@@ -48,7 +48,6 @@
     "lodash.omit": "4.5.0",
     "lodash.sortby": "4.7.0",
     "lodash.uniq": "4.5.0",
-    "openseadragon": "2.4.2",
     "sharp": "0.28.3",
     "xml-js": "1.6.11"
   },

@@ -1,140 +1,129 @@
-// const CONFIG_URI = 'static/openseadragon.config.json';
+let lazyObserver = null;
 
-// window.setTimeout(() => {
-const toolbarEl = document.createElement('div');
-toolbarEl.setAttribute('id', 'toolbarDiv');
-toolbarEl.className = 'toolbar';
-toolbarEl.innerHTML = `<span>
-  | <a id="zoom-in" href="#zoom-in">Zoom In</a> 
-  | <a id="zoom-out" href="#zoom-out">Zoom Out</a>
-  | <a id="home" href="#home">Home</a> 
-  | <a id="toggle-overlay" href="#toggle-overlay" class="toggle-overlay">Toggle layers (current: Image + Mask)</a>
+const PLACEHOLDER_IMAGE_URL = 'static/paper.png';
 
-  | <a id="full-page" href="#full-page">Full Page</a> 
-        </span>` + `<span>
-  &lt;&nbsp;
-      <a id="previous" href="#previous-page">Previous</a> 
-      | <a id="next" href="#next-page">Next</a> 
-      &nbsp;&gt;
-  </span>`;
-      // <span id='currentpage'> 1 of 3 </span>
-document.body.appendChild(toolbarEl);
+const previewScrollerEl = document.getElementById('preview-scroller');
 
-const osdEl = document.createElement('div');
-osdEl.setAttribute('id', 'openseadragon1');
-osdEl.setAttribute('class', 'container');
-document.body.appendChild(osdEl);
+const workAreaEl = document.getElementById('work-area');
 
-console.info(`Initializing app...`);
-const viewer = OpenSeadragon({
-  id: 'openseadragon1',
-  prefixUrl: 'static/openseadragon/images/',
-  sequenceMode: true,
-  zoomInButton: 'zoom-in',
-  zoomOutButton: 'zoom-out',
-  homeButton: 'home',
-  fullPageButton: 'full-page',
-  nextButton: 'next',
-  previousButton: 'previous',
-
-  /*
-     RIGHT:        4,
-      BOTTOM_RIGHT: 5,
-      BOTTOM:       6,
-      BOTTOM_LEFT:  7,
-      LEFT:         8,
-   */
-  showReferenceStrip: true,
-  referenceStripPosition: 4,
-  referenceStripScroll: 'vertical',
-  autoResize: true,
-  navigatorAutoResize: true,
-  opacity: 1.0,
-  autoHideControls: false,
-  placeholderFillStyle: '#888888',
-  ...window.CONFIG,
-});
-
-/*
-document.querySelector('#toggle-overlay').addEventListener('click', function() {
-    if (overlay) {
-        viewer.removeOverlay("runtime-overlay");
-    } else {
-        var elt = document.createElement("div");
-        elt.id = "runtime-overlay";
-        elt.className = "highlight";
-        viewer.addOverlay({
-            element: elt,
-            location: new OpenSeadragon.Rect(0.33, 0.75, 0.2, 0.25)
-        });
-    }
-    overlay = !overlay;
-});
-*/
-viewer.addHandler('open', (target) => {
-  window.console.log('in open handler', target);
-  const { source } = target;
-  // if(startState) {
-  viewer.addTiledImage({
-    opacity: 1.0,
-	// Valid values are 'source-over', 'source-atop', 'source-in', 'source-out', 'destination-over', 'destination-atop', 'destination-in', 'destination-out', 'lighter', 'copy' or 'xor',
-	compositeOperation: 'screen',  
-	tileSource: {
-      url: source.url.replace(/\.[^\/.]+$/uig, '_GT.png'),
-      width: source.width,
-      height: source.height,
-      type: 'image',
-      title: source.url,
-      x: 0,
-      Y: 0,
-    },
-    x: 0,
-    y: 0,
-  });
-});
-
-
-var selectedIndex = 2;
-
-toolbarEl.querySelector('#toggle-overlay').addEventListener('click', function(el) {
-    selectedIndex = (selectedIndex + 1) % 3;  
-	if (selectedIndex == 2) {
-		viewer.world.getItemAt(0).setOpacity(1);
-		viewer.world.getItemAt(1).setOpacity(1);
-	} else {
-		viewer.world.getItemAt(0).setOpacity(selectedIndex === 0 ? 1 : 0);
-		viewer.world.getItemAt(1).setOpacity(selectedIndex === 1 ? 1 : 0);
-	}
-	
-	
-	if (selectedIndex === 0) {
-		toolbarEl.querySelector('#toggle-overlay').innerHTML = 'Toggle layers (current: Image)';
-	} else if (selectedIndex === 1) {
-		toolbarEl.querySelector('#toggle-overlay').innerHTML = 'Toggle layers (current: Mask)';
-	} else {
-		toolbarEl.querySelector('#toggle-overlay').innerHTML = 'Toggle layers (current: Image + Mask)';
-	}
-});
-
-/*
-var fade = function(image, targetOpacity) {
-    var currentOpacity = image.getOpacity();
-    var step = (targetOpacity - currentOpacity) / 10;
-    if (step === 0) {
-        return;
-    }
-
-    var frame = function() {
-        currentOpacity += step;
-        if ((step > 0 && currentOpacity >= targetOpacity) || (step < 0 && currentOpacity <= targetOpacity)) {
-            image.setOpacity(targetOpacity);
-            return;
-        }
-
-        image.setOpacity(currentOpacity);
-        OpenSeadragon.requestAnimationFrame(frame);
-    };
- 
-    OpenSeadragon.requestAnimationFrame(frame);
+workAreaEl.onclick = () => {
+  const nameChunks = workAreaEl.className.split(' ');
+  const filteredNameChunks = nameChunks.filter(v => v.toLocaleLowerCase() !== 'zoom');
+  if (filteredNameChunks.length === nameChunks.length) {
+    filteredNameChunks.push('zoom');
+  }
+  workAreaEl.className = filteredNameChunks.join(' ');
 };
-*/
+
+const refreshLazyLoading = () => {
+  if (!lazyObserver) {
+    lazyObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry, idx) => {
+        if (entry.isIntersecting === true) {
+          entry.target.setAttribute('src', entry.target.getAttribute('data-src'));
+          lazyObserver.unobserve(entry.target);
+          entry.target.className = entry.target.className.split(' ').filter(c => c !== 'lazy').join(' ');
+        }
+      });
+    }, { threshold: [0], rootMargin: '300px' });
+  }
+  document.body.querySelectorAll('img.lazy').forEach(n => {
+    lazyObserver.unobserve(n);
+    lazyObserver.observe(n);
+  });
+};
+
+const getWrappedImage = (item, lazy = true) => {
+  const imgWrapperEl = document.createElement('div');
+  imgWrapperEl.className = 'image-wrapper';
+  // imgWrapperEl.id = item.name;
+
+  const imgEl = document.createElement('img');
+
+  if (lazy) {
+    imgWrapperEl.innerHTML = [
+      `<div class="image-placeholder"><img alt="${item.name}" class="lazy mask" data-src="${item.maskThumbUrl}" src="${PLACEHOLDER_IMAGE_URL}" loading="lazy"/></div>`,
+      `<div class="image-placeholder"><img alt="${item.name}" class="lazy underlay" data-src="${item.thumbUrl}" src="${PLACEHOLDER_IMAGE_URL}"  loading="lazy"/></div>`,
+    ].join('');
+  } else {
+    imgWrapperEl.innerHTML = [
+      `<div class="image-placeholder"><img alt="${item.name}" class="mask" data-src="${item.maskThumbUrl}" src="${item.maskThumbUrl}" /></div>`,
+      `<div class="image-placeholder"><img alt="${item.name}" class="underlay" data-src="${item.thumbUrl}" src="${item.thumbUrl}" /></div>`,
+    ].join('');
+  }
+  imgWrapperEl.appendChild(imgEl);
+  return imgWrapperEl;
+};
+
+const selectItem = (cn) => {
+  const wrapperEl = cn.parentNode.parentNode;
+  wrapperEl.className = [...wrapperEl.className.split(' ').filter(v => v !== 'selected'), 'selected'].join(' ');
+  workAreaEl.innerHTML = wrapperEl.outerHTML;
+  workAreaEl.querySelectorAll('img').forEach(imEl => {
+    imEl.setAttribute('src', (imEl.getAttribute('data-src') || imEl.src).replace(/thumb\//ui, ''));
+    imEl.setAttribute('data-src', (imEl.getAttribute('data-src') || imEl.src).replace(/thumb\//ui, ''));
+  });
+};
+
+const select = (rootEl, item) => {
+  rootEl.querySelectorAll('.selected').forEach(cn => {
+    cn.className = cn.className.split(' ').filter(c => c !== 'selected').join(' ');
+  });
+  rootEl.querySelectorAll('img').forEach(
+    cnImg => {
+      if ((cnImg.alt || '').indexOf(item) !== -1) {
+        selectItem(cnImg);
+      }
+    },
+  );
+};
+const locationHashChanged = () => {
+  let item = window.location.hash.replace(/#/uig, '');
+  if ((item.length === 0) && window.IMAGES && (window.IMAGES.length > 0)) {
+    window.location.hash = `#${window.IMAGES[0].name}`;
+  } else {
+    return select(previewScrollerEl, item);
+  }
+};
+
+const load = async () => {
+
+  previewScrollerEl.innerHTML = '';
+  (window.IMAGES || []).forEach(item => {
+    const imgWrapperEl = getWrappedImage(item, true);
+    previewScrollerEl.appendChild(imgWrapperEl);
+    imgWrapperEl.onclick = ((name) => () => {
+      if (!window.location.hash.startsWith(name)) {
+        window.location.hash = `#${name}`;
+      }
+    })(item.name);
+  });
+
+  locationHashChanged();
+  // previewScrollerEl.querySelector('.selected').scrollIntoView(true);
+  refreshLazyLoading();
+};
+window.addEventListener('hashchange', locationHashChanged);
+
+load().then(() => console.info('Groups are loaded')).catch(console.error);
+
+window.addEventListener('keydown', function (event) {
+  if ((event.code === 'ArrowDown') && (event.altKey)) {
+    const ns = previewScrollerEl.querySelector('.selected');
+    if (ns && ns.nextSibling) {
+      select(previewScrollerEl, ns.nextSibling.querySelector('img').alt);
+      ns.nextSibling.scrollIntoView(true);
+      refreshLazyLoading();
+    }
+  }
+  if ((event.code === 'ArrowUp') && (event.altKey)) {
+    const ns = previewScrollerEl.querySelector('.selected');
+
+    if (ns && ns.previousSibling) {
+      select(previewScrollerEl, ns.previousSibling.querySelector('img').alt);
+      ns.previousSibling.scrollIntoView(true);
+      refreshLazyLoading();
+    }
+  }
+
+}, true);

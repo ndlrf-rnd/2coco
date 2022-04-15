@@ -1,57 +1,239 @@
-html, body, .container {
+html {
+    width: 100%;
     height: 100%;
+    overflow: hidden;
+}
+
+body {
+    margin: 0;
+    color: #666666;
+    font-size: 13px;
+    line-height: 24px;
+    overscroll-behavior: none;
+
+    width: 100%;
+    height: 100%;
+}
+
+body * {
+    font-family: Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+    box-sizing: border-box;
+}
+
+button {
+    z-index: 101;
+    width: 128px;
+}
+
+.zoom {
+    cursor: zoom-in;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.group-info {
+    display: flex !important;
+    flex-shrink: 0;
+    flex-grow: 1;
+    min-width: fit-content !important;
+    /*align-items: center;*/
+    flex-direction: column;
+    overflow: hidden;
+    max-width: 256px;
+}
+
+.group-info a {
     width: 100%;
     overflow: hidden;
-    /* margin: 0; */
-    padding: 0;
-    border: 0;
-    font-family: "Trebuchet MS", Verdana, sans-serif;
+    word-wrap: break-word;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
 }
-img.mask:hover {
+
+.group-info a:hover {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.5);
+    text-decoration: underline;
+
+}
+
+.app {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.dimension {
+    display: flex;
+    flex-direction: row;
+    overflow: hidden;
+}
+
+
+.vertical {
+    height: 100%;
+    overflow-x: hidden;
+    overflow-y: scroll;
+}
+
+.work-area {
+    height: 100%;
+    width: 100%;
+    position: initial;
+    overflow: auto;
+    text-align: center;
+}
+
+.work-area .image-wrapper {
+    height: 100%;
+    width: 100%;
+}
+
+.vertical .image-wrapper {
+    height: 256px;
+    width: 256px;
+}
+
+.vertical .image-wrapper .image-placeholder {
+    width: auto;
+    height: 100%;
+}
+
+.image-wrapper {
+    background-color: #EEEEEE;
+    text-align: center;
+    position: relative;
+    cursor: pointer;
+    overflow: hidden;
+
+}
+
+
+.image-placeholder {
+    background-color: #EEEEEE;
+    text-align: center;
+    display: block;
+    width: auto;
+    height: 100%;
+    position: absolute;
+}
+
+.image-placeholder img {
+    height: 100%;
+    width: auto;
+    position: relative;
+}
+
+img.underlay {
+    z-index: 1;
     opacity: 1.0;
 }
 
 img.mask {
-    opacity: 0.25;
-}
-
-.block {
-    cursor: pointer;
-    overflow: hidden;
-    display: inline-block;
-    max-width: 512px;
-    height: auto !important;
-    background-repeat: no-repeat;
-    background-position: center;
-    text-align: center;
-    white-space: nowrap;
-}
-.openseadragon-container {
-    background-color: #808080!important;
-}
-.toolbar {
-    box-shadow: 0 4px 5px 0 rgb(0 0 0 / 14%), 0 1px 10px 0 rgb(0 0 0 / 12%), 0 2px 4px -1px rgb(0 0 0 / 20%);
-    background: white;
-    padding: 8px;
-    display: flex;
-    position: relative;
-}
-.toolbar span {
-    flex: auto;
-    /* margin: 8px!important; */
-}
-.toolbar span a {
-    color: blue;
-    text-align: center;
-    line-height: 100%;
-    vertical-align: top;
-}
-
-.toolbar span a:hover {
-    opacity: 0.75;
-}
-.toggle-overlay-status {
-    color: black;
+    z-index: 10;
     opacity: 0.5;
-    font-size: 75%;
+}
+
+.vertical .image-wrapper.selected .image-placeholder {
+    box-shadow: 0 0 8px 0 rgba(0, 0, 0, 1.0);
+}
+
+.vertical .image-wrapper:hover .image-placeholder {
+    box-shadow: 0 0 8px 0 rgba(0, 0, 0, 0.5);
+}
+
+.image-wrapper .overlay {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    /*margin: 0;*/
+    border: none;
+}
+
+/*.overlay:hover,*/
+.image-wrapper:hover .overlay {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    /*position: absolute;*/
+}
+
+.close-group-info {
+    width: 32px;
+    margin-bottom: -32px !important;
+    margin-left: -8px !important;
+    line-height: 32px !important;
+    z-index: 100;
+}
+
+.close-group-info,
+.image-wrapper span {
+    text-decoration: none;
+    text-align: center;
+    cursor: pointer;
+    color: #666666;
+    font-size: 16px;
+    min-width: 32px;
+    height: 32px;
+    line-height: 32px;
+    display: inline-block;
+    overflow: hidden;
+    text-shadow: -1px -1px 1px rgba(255, 255, 255, 0.5);
+}
+
+.image-wrapper span:hover,
+.close-group-info:hover {
+    font-size: 24px;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.25);
+    background-color: rgba(255, 255, 255, 0.25);
+}
+
+
+.image-wrapper .chosen-add-positive {
+    color: red;
+}
+
+.image-wrapper .chosen-add-negative {
+    color: dodgerblue;
+}
+
+.image-wrapper .chosen-remove {
+    color: black;
+}
+
+.image-wrapper.positive {
+    background-color: #FFCCCC;
+}
+
+.image-wrapper.negative {
+    background-color: #CCCCFF
+}
+
+
+/* display: block; */
+/* flex: 1; */
+/* flex-direction: column;
+}
+
+.chosen {
+align-content: baseline;
+flex-direction: row;
+display: flex;
+overflow-x: hidden;
+overflow-y: auto;
+flex-wrap: wrap;
+max-height: fit-content;
+min-height: 128px;
+}
+
+.chosen {
+flex: 1;
 }
