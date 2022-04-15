@@ -108,7 +108,7 @@ button {
     position: relative;
     cursor: pointer;
     overflow: hidden;
-
+    display: block;
 }
 
 
