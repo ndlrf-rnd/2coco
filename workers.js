@@ -2,7 +2,7 @@ const cluster = require('cluster');
 const cloneDeep = require('lodash.clonedeep');
 const os = require('os');
 
-const DEFAULT_JOBS = Math.max(2, parseInt(process.env.JOBS, 10) || (os.cpus().length - 1));
+const DEFAULT_JOBS = Math.max(1, parseInt(process.env.JOBS, 10) || (os.cpus().length - 1));
 const DEFAULT_BATCH = 8;
 const WORKER_SYNC = process.env.WORKER_SYNC || (process.env.NODE_ENV === 'test');
 

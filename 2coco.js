@@ -302,8 +302,6 @@ const processImages = async (images, ctx, workerId) => {
         bmctx.strokeStyle = COLORS.black;
         binMaskCtxes.push(bmctx);
       }
-      // console.error('binMaskCtxes', binMaskCtxes);
-      // console.log('ctx.categories', ctx.categories)
       sortBy(annotations, ['category_id', 'id']).forEach(
         (ann) => {
           const annCat = Object.values(ctx.categories,
@@ -311,7 +309,6 @@ const processImages = async (images, ctx, workerId) => {
           ).filter(
             ({ id }) => id === ann.category_id,
           )[0] || {}; // TODO: Rly need object default here?!
-          // console.error('annCat', annCat)
           ann.segmentation.forEach(
             (seg) => {
               seg = forceArray(seg);
@@ -588,68 +585,64 @@ const processImages = async (images, ctx, workerId) => {
         );
       }
 
-      if (!ctx.no_masks) {
-        im.mask_file_name = maskOutputPath;
-        im.mask_thumb_file_name = await saveImg(
-          sharp(canvasBlock.toBuffer(), DEFAULT_SHARP_PARAMS).png(pngParams),
-          maskOutputPath,
-        );
-      }
+      im.mask_file_name = maskOutputPath;
+      im.mask_thumb_file_name = await saveImg(
+        sharp(canvasBlock.toBuffer(), DEFAULT_SHARP_PARAMS).png(pngParams),
+        maskOutputPath,
+      );
       let dstSize = 0;
 
-      if (ctx.no_images) {
-        log(` -[SKIP]-X due --no-images`);
-      } else {
-        try {
+      try {
 
-          if (fs.existsSync(outputFilePath)) {
-            fs.unlinkSync(outputFilePath);
-          }
-
-          const maskImages = await cpMap(
-            Object.values(colorToMaskId).filter(({ mask }) => mask),
-            async ({ maskId }) => {
-              const maskChannel = await sharp(binMaskCanvases[maskId].toBuffer())
-                .extractChannel(0)
-                .toBuffer();
-              const { dominant } = await image.stats();
-              return sharp({
-                create: {
-                  width: im.width,
-                  height: im.height,
-                  channels: 3,
-                  background: dominant,
-                },
-              }).png().ensureAlpha().joinChannel(
-                maskChannel,
-                {},
-              );
-            });
-
-          let resizedImage = image.resize(
-            im.width,
-            im.height,
-          );
-          // if (maskImages.length > 0)
-          //   resizedImage = resizedImage.composite(
-          //     await cpMap(
-          //       maskImages,
-          //       async categoriesMask => ({
-          //         input: await categoriesMask.toBuffer(),
-          //       }),
-          //     ),
-          //   );
-
-          im.thumb_file_name = await saveImg(resizedImage, outputFilePath);
-          if (!fs.existsSync(outputFilePath)) {
-            console.error(`ERROR: failed to convert\n`);
-            error = 'Failed';
-          }
-          dstSize = fs.statSync(outputFilePath).size;
-        } catch (e) {
-          error = `Error during image conversion:\n${e.message}\n${e.stack}`;
-          console.error(error);
+        if (fs.existsSync(outputFilePath)) {
+          fs.unlinkSync(outputFilePath);
         }
+
+        const maskImages = await cpMap(
+          Object.values(colorToMaskId).filter(({ mask }) => mask),
+          async ({ maskId }) => {
+            const maskChannel = await sharp(binMaskCanvases[maskId].toBuffer())
+              .extractChannel(0)
+              .toBuffer();
+            const { dominant } = await image.stats();
+            return sharp({
+              create: {
+                width: im.width,
+                height: im.height,
+                channels: 3,
+                background: dominant,
+              },
+            }).png().ensureAlpha().joinChannel(
+              maskChannel,
+              {},
+            );
+          });
+
+        let resizedImage = await image.resize(
+          im.width,
+          im.height,
+        ).toBuffer();
+
+        if (maskImages.length > 0) {
+          resizedImage = await sharp(resizedImage).composite(
+            await cpMap(
+              maskImages,
+              async categoriesMask => ({
+                input: await categoriesMask.toBuffer(),
+              }),
+            ),
+          ).toBuffer();
+        }
+
+        im.thumb_file_name = await saveImg(sharp(resizedImage), outputFilePath);
+        if (!fs.existsSync(outputFilePath)) {
+          console.error(`ERROR: failed to convert\n`);
+          error = 'Failed';
+        }
+        dstSize = fs.statSync(outputFilePath).size;
+      } catch (e) {
+        error = `Error during image conversion:\n${e.message}\n${e.stack}`;
+        console.error(error);
       }
 
       const t2 = (new Date()).getTime();
@@ -1186,11 +1179,10 @@ const makeCoco = async (input, conf) => {
       colorToMaskId,
     },
   ));
-  errorImages = result.images.filter(i => !!i).reduce(
+  const errorImages = result.images.filter(i => !!i).reduce(
     (acc, { id, error }) => (error ? acc : { ...acc, id: true }),
     {},
   );
-  console.error('error', errorImages);
   result.annotations = result.annotations.filter(a => errorImages[a.image_id] === 'undfined');
   result.images = result.images.filter(v => v && (!v.error));
 
@@ -1246,16 +1238,17 @@ const run = async (conf) => {
   log(`Output path: ${output}`);
   // console.error('INPUT PATHS', inputPaths)
   fs.mkdirSync(output, { recursive: true });
+  let categories = conf.categories && (conf.categories.length > 0)
+    ? conf.categories.reduce(
+      (a, k) => ({ ...a, [k]: { ...CATEGORIES[k], mask: false } }),
+      {},
+    ) : CATEGORIES;
 
-  const categories = (conf.mask_categories || []).reduce(
+  categories = (conf.mask_categories || []).reduce(
     (a, k) => ({ ...a, [k]: { ...CATEGORIES[k], mask: true } }),
-    conf.categories && (conf.categories.length > 0)
-      ? conf.categories.reduce(
-        (a, k) => ({ ...a, [k]: { ...CATEGORIES[k], mask: false } }),
-        {},
-      )
-      : CATEGORIES,
+    categories,
   );
+  console.log('c', categories);
 
   const parsed = await cpMap(
     inputPaths,

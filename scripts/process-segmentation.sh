@@ -2,7 +2,6 @@ set -ex
 
 export JOBS="${JOBS:-8}"
 
-
 # Retropress Validation
 
 node 2coco.js \
@@ -17,6 +16,67 @@ node 2coco.js \
   --categories mixed \
   --output "../DATA/segmentation/retropress/val/" \
   '../DATA/retropress-val/**/*.xml'
+
+
+# PRImA Newspapers
+
+node 2coco.js \
+  --output-max-dpi 300 \
+  --default-dpi 300 \
+  --lines-width 2 \
+  --no-skeleton \
+  --mask-categories advertisement \
+  --mask-categories table \
+  --categories graphics \
+  --categories text \
+  --categories mixed \
+  --output "../DATA/segmentation/prima-newspapers/train/" \
+  '../DATA/Prima-Newspapers/pc-????????.xml'
+
+
+node 2coco.js \
+  --output-max-dpi 300 \
+  --default-dpi 300 \
+  --lines-width 2 \
+  --no-skeleton \
+  --mask-categories advertisement \
+  --mask-categories table \
+  --categories table \
+  --categories graphics \
+  --categories text \
+  --categories mixed \
+  --output "../DATA/segmentation/prima-newspapers/train-plus/" \
+  '../DATA/Prima-Newspapers/*.pc.page.xml'
+
+
+node 2coco.js \
+  --output-max-dpi 300 \
+  --default-dpi 300 \
+  --lines-width 2 \
+  --no-skeleton \
+  --mask-categories advertisement \
+  --mask-categories table \
+  --categories table \
+  --categories graphics \
+  --categories text \
+  --categories mixed \
+  --output "../DATA/segmentation/prima-newspapers/test/" \
+  '../DATA/Prima-Newspapers/prima_newspapers_test/*pc*.xml'
+
+
+node 2coco.js \
+  --output-max-dpi 300 \
+  --default-dpi 300 \
+  --lines-width 2 \
+  --no-skeleton \
+  --mask-categories advertisement \
+  --mask-categories table \
+  --categories graphics \
+  --categories text \
+  --categories mixed \
+  --output "../DATA/segmentation/prima-newspapers/test-plus/" \
+  '../DATA/Prima-Newspapers/prima_newspapers_test/*.pc.page.xml'
+
 
 
 # ICPR 2020
@@ -67,7 +127,6 @@ node ./2coco.js \
 
 # PRImA Layout analysis
 
-
 node 2coco.js \
   --output-max-dpi 300 \
   --default-dpi 300 \
@@ -94,63 +153,6 @@ node 2coco.js \
   --categories mixed \
   --output "../DATA/segmentation/prima-layout-analysis/train-plus/" \
   '../DATA/PRImA-LayoutAnalysisDataset/????????.xml'
-
-# PRImA Newspapers
-
-node 2coco.js \
-  --output-max-dpi 300 \
-  --default-dpi 300 \
-  --lines-width 2 \
-  --no-skeleton \
-  --mask-categories advertisement \
-  --mask-categories table \
-  --categories graphics \
-  --categories text \
-  --categories mixed \
-  --output "../DATA/segmentation/prima-newspapers/train/" \
-  '../DATA/Prima-Newspapers/pc-????????.xml'
-
-
-node 2coco.js \
-  --output-max-dpi 300 \
-  --default-dpi 300 \
-  --lines-width 2 \
-  --no-skeleton \
-  --mask-categories advertisement \
-  --mask-categories table \
-  --categories graphics \
-  --categories text \
-  --categories mixed \
-  --output "../DATA/segmentation/prima-newspapers/train-plus/" \
-  '../DATA/Prima-Newspapers/*.pc.page.xml'
-
-
-node 2coco.js \
-  --output-max-dpi 300 \
-  --default-dpi 300 \
-  --lines-width 2 \
-  --no-skeleton \
-  --mask-categories advertisement \
-  --mask-categories table \
-  --categories graphics \
-  --categories text \
-  --categories mixed \
-  --output "../DATA/segmentation/prima-newspapers/test/" \
-  '../DATA/Prima-Newspapers/prima_newspapers_test/*pc*.xml'
-
-
-node 2coco.js \
-  --output-max-dpi 300 \
-  --default-dpi 300 \
-  --lines-width 2 \
-  --no-skeleton \
-  --mask-categories advertisement \
-  --mask-categories table \
-  --categories graphics \
-  --categories text \
-  --categories mixed \
-  --output "../DATA/segmentation/prima-newspapers/test-plus/" \
-  '../DATA/Prima-Newspapers/prima_newspapers_test/*.pc.page.xml'
 
 
 # BnL newspapers highest variance 05 dataset
